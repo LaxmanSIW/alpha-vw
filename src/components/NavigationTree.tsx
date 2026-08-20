@@ -1,5 +1,5 @@
 import Icon from './Icon'
-import type { NavItem } from '../types'
+import type { NavItem, NodeStatusTone } from '../types'
 
 interface NavigationTreeProps {
   items: NavItem[]
@@ -9,6 +9,12 @@ interface NavigationTreeProps {
   /** Selecting a leaf that maps to a canvas node also centres it -- the shell
    * owns that behaviour so search and the tree stay consistent. */
   onSelect: (id: string) => void
+}
+
+function statusClass(status: NodeStatusTone) {
+  if (status === 'danger') return 'bg-danger-fg'
+  if (status === 'warning') return 'bg-warning-fg'
+  return 'bg-success-fg'
 }
 
 function NavigationTree({
@@ -95,14 +101,11 @@ function TreeRow({
             />
           </button>
         ) : (
-          <span className="size-4 shrink-0" />
+          <span
+            aria-hidden="true"
+            className={`h-2.5 w-2.5 shrink-0 ${statusClass((item.data?.status as NodeStatusTone) ?? 'ok')}`}
+          />
         )}
-
-        <span
-          className={`shrink-0 ${isSelected ? 'text-primary' : 'text-text-muted'}`}
-        >
-          <Icon name={isFolder ? 'folder' : 'node'} size={12} />
-        </span>
 
         <span className="truncate">{item.label}</span>
 

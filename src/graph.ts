@@ -57,6 +57,62 @@ export function relationOf(
   return 'none'
 }
 
+export function predecessorsOf(nodeId: string, edges: Edge[]): string[] {
+  const visited = new Set<string>()
+  const queue = [nodeId]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const edge of edges) {
+      if (edge.target !== current || visited.has(edge.source)) continue
+      visited.add(edge.source)
+      queue.push(edge.source)
+    }
+  }
+
+  return Array.from(visited)
+}
+
+export function successorsOf(nodeId: string, edges: Edge[]): string[] {
+  const visited = new Set<string>()
+  const queue = [nodeId]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const edge of edges) {
+      if (edge.source !== current || visited.has(edge.target)) continue
+      visited.add(edge.target)
+      queue.push(edge.target)
+    }
+  }
+
+  return Array.from(visited)
+}
+
+export function levelOfNode(nodeId: string, edges: Edge[]): number {
+  const visit = new Map<string, number>()
+
+  function depth(currentId: string): number {
+    const cached = visit.get(currentId)
+    if (cached !== undefined) return cached
+
+    const parents = edges
+      .filter((edge) => edge.target === currentId)
+      .map((edge) => edge.source)
+
+    if (parents.length === 0) {
+      visit.set(currentId, 0)
+      return 0
+    }
+
+    const maxDepth = Math.max(...parents.map((parentId) => depth(parentId) + 1))
+    visit.set(currentId, maxDepth)
+    return maxDepth
+  }
+
+  return depth(nodeId)
+}
+
 /**
  * An edge is upstream when it carries flow *into* the selected node, i.e. its
  * source is an ancestor. Checking only the endpoints' membership would miscolour

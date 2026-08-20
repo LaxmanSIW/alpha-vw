@@ -24,7 +24,9 @@ interface FlowCanvasProps {
   edges: Edge[]
   selectedNodeId: string | null
   onNodeClick: NodeMouseHandler
+  onNodeContextMenu?: NodeMouseHandler
   onPaneClick: () => void
+  onPaneContextMenu?: (event: MouseEvent | React.MouseEvent) => void
   children?: React.ReactNode
 }
 
@@ -44,7 +46,9 @@ function FlowCanvas({
   edges,
   selectedNodeId,
   onNodeClick,
+  onNodeContextMenu,
   onPaneClick,
+  onPaneContextMenu,
   children,
 }: FlowCanvasProps) {
   // Stable identity: React Flow remounts every node if nodeTypes changes.
@@ -95,7 +99,9 @@ function FlowCanvas({
       edges={displayEdges}
       nodeTypes={nodeTypes}
       onNodeClick={onNodeClick}
+      onNodeContextMenu={onNodeContextMenu}
       onPaneClick={onPaneClick}
+      onPaneContextMenu={onPaneContextMenu}
       fitView
       // Straight point-to-point lines. Smoothstep added corners that read as
       // routing decisions the graph is not actually making.

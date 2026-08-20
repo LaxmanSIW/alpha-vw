@@ -29,6 +29,42 @@ export interface NavItem {
     data?: Record<string, unknown>
     children?: NavItem[]
 }
+
+export type PopupSide = 'top' | 'right' | 'bottom' | 'left'
+export type ContextRelationKind = 'predecessors' | 'successors'
+export type NodeStatusTone = 'ok' | 'warning' | 'danger'
+
+export interface ContextMenuAction {
+    id: string
+    label: string
+    kind?: ContextRelationKind | 'custom'
+}
+
+export interface ContextMenuItem {
+    id: string
+    name: string
+    status: NodeStatusTone
+    level: number
+}
+
+export interface ContextPopupPosition {
+    x: number
+    y: number
+    width: number
+    height: number
+    side: PopupSide
+}
+
+export interface ContextMenuState {
+    kind: 'menu' | 'list'
+    nodeId: string
+    x: number
+    y: number
+    side: PopupSide
+    options?: ContextMenuAction[]
+    relation?: ContextRelationKind
+    items?: ContextMenuItem[]
+}
 /** Which pane last had focus. Drives context-sensitive expand/collapse all. */
 
 export type PaneId = 'nav' | 'canvas' | 'details'

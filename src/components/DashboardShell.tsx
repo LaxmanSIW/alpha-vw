@@ -11,10 +11,13 @@ import NodeListView from './NodeListView'
 import ViewpointCatalog from './ViewpointCatalog'
 import CanvasSearch from './CanvasSearch'
 import StatusBar from './StatusBar'
+import ContextPopup, { calculatePopupPlacement, nextContextMenuState } from './ContextPopup'
 import { INITIAL_EDGES, MODULES, NAV_TREE, VIEWPOINTS } from '../data/mockData'
 import { absolutePositionOf, buildFlowNodes, layoutHierarchy } from '../layout'
+import { CONTEXT_MENU_ACTIONS } from '../config/viewConfig'
 import {
   VIEWPOINT_CATALOG_TAB_ID,
+  type ContextMenuState,
   type DensityName,
   type NavItem,
   type PaneId,
@@ -51,6 +54,8 @@ function DashboardShell() {
     () => new Set(ALL_FOLDER_IDS),
   )
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [contextList, setContextList] = useState<ContextMenuState | null>(null)
   /** Whether job boxes show their detail rows. One flag for all of them, since
    *  the action bar toggle is all-or-nothing. */
   const [jobsExpanded, setJobsExpanded] = useState(true)
@@ -207,7 +212,71 @@ function DashboardShell() {
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id)
+    setContextMenu(null)
+    setContextList(null)
   }, [])
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault()
+    setSelectedNodeId(node.id)
+    const placement = calculatePopupPlacement(event.clientX, event.clientY, 180, 96, 'right')
+    setContextMenu({
+      kind: 'menu',
+      nodeId: node.id,
+      x: placement.x,
+      y: placement.y,
+      side: placement.side,
+      options: CONTEXT_MENU_ACTIONS,
+    })
+    setContextList(null)
+  }, [])
+
+  const onPaneContextMenu = useCallback((event: MouseEvent | React.MouseEvent) => {
+    event.preventDefault()
+    setContextMenu(null)
+    setContextList(null)
+  }, [])
+
+  const onContextAction = useCallback(
+    (nodeId: string, actionId: string) => {
+      const fromNode = nodes.find((node) => node.id === nodeId)
+      if (!fromNode || !contextMenu) return
+
+      const relation = actionId === 'predecessors' ? 'predecessors' : 'successors'
+      const map = new Map(
+        nodes.map((node) => [
+          node.id,
+          {
+            id: node.id,
+            label: String((node.data as { label?: string })?.label ?? node.id),
+            status: ((node.data as { status?: 'ok' | 'warning' | 'danger' })?.status ?? 'ok'),
+            data: node.data as Record<string, unknown>,
+          },
+        ]),
+      )
+
+      const nextMenu = nextContextMenuState(
+        {
+          kind: 'menu',
+          nodeId,
+          x: contextMenu.x,
+          y: contextMenu.y,
+          side: contextMenu.side,
+          options: CONTEXT_MENU_ACTIONS,
+        },
+        actionId,
+        INITIAL_EDGES,
+        map,
+      )
+
+      setContextList({
+        ...nextMenu,
+        items: nextMenu.items,
+        relation,
+      })
+    },
+    [contextMenu, nodes],
+  )
 
   const selectedLabel = selectedNode
     ? ((selectedNode.data as { label?: string }).label ?? null)
@@ -281,9 +350,12 @@ function DashboardShell() {
               edges={INITIAL_EDGES}
               selectedNodeId={selectedNodeId}
               onNodeClick={onNodeClick}
+              onNodeContextMenu={onNodeContextMenu}
               onPaneClick={() => {
                 setSelectedNodeId(null)
+                setContextMenu(null)
               }}
+              onPaneContextMenu={onPaneContextMenu}
             >
               {searchOpen && (
                 <CanvasSearch
@@ -318,6 +390,32 @@ function DashboardShell() {
         selectedLabel={selectedLabel}
         focusedPane={focusedPane}
       />
+
+      {contextMenu && (
+        <ContextPopup
+          menu={contextMenu}
+          onClose={() => {
+            setContextMenu(null)
+            setContextList(null)
+          }}
+          onSelectNode={setSelectedNodeId}
+          onSelectAction={onContextAction}
+        />
+      )}
+      {contextList && (
+        <ContextPopup
+          menu={contextList}
+          onClose={() => {
+            setContextMenu(null)
+            setContextList(null)
+          }}
+          onSelectNode={(nodeId) => {
+            setSelectedNodeId(nodeId)
+            setContextMenu(null)
+            setContextList(null)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -11,6 +11,8 @@
  * below which are derived from the node itself rather than its data.
  */
 
+import type { ContextMenuAction } from '../types'
+
 /** Keys resolved from the node rather than node.data. */
 export const RESERVED_KEYS = {
   id: '__id',
@@ -18,6 +20,20 @@ export const RESERVED_KEYS = {
 } as const
 
 export type FieldFormat = 'text' | 'mono' | 'status'
+
+export const CONTEXT_MENU_ACTIONS: ContextMenuAction[] = [
+  { id: 'predecessors', label: 'Predecessors', kind: 'predecessors' },
+  { id: 'successors', label: 'Successors', kind: 'successors' },
+]
+
+/** Popup sizing configuration */
+export const POPUP_CONFIG = {
+  MENU_WIDTH: 180,
+  MENU_HEIGHT: 120,
+  LIST_WIDTH: 260,
+  LIST_HEIGHT: 320,
+  GAP: 10,
+} as const
 
 export interface FieldDef {
   key: string
