@@ -1,0 +1,108 @@
+/* ==========================================================================
+   React Flow -- flat design overrides
+   --------------------------------------------------------------------------
+   React Flow ships rounded nodes, circular handles, and shadowed panels. The
+   global `border-radius: 0 !important; box-shadow: none !important` rule in
+   tokens.css already squares off and de-shadows all of it; this file does the
+   part that rule cannot: rebind React Flow's own color variables to our theme
+   tokens so the canvas follows light/dark like everything else.
+   ========================================================================== */
+
+.react-flow {
+  --xy-background-color: var(--canvas);
+  --xy-edge-stroke: var(--border-strong);
+  --xy-edge-stroke-selected: var(--primary);
+  --xy-edge-stroke-width: 1;
+  --xy-connectionline-stroke: var(--primary);
+  --xy-handle-background-color: var(--surface);
+  --xy-handle-border-color: var(--border-strong);
+  --xy-selection-background-color: rgb(0 51 161 / 0.06);
+  --xy-selection-border: 1px solid var(--primary);
+  --xy-attribution-background-color: transparent;
+}
+
+/* Triangular connection points. Both triangles point down, so the direction of
+   flow is legible from the node itself and not only from the arrowheads. A
+   clip-path rather than a rotated square, because rotating a square reintroduces
+   the diagonal antialiasing that makes small marks look soft. */
+.react-flow__handle {
+  width: 16px;
+  height: 12px;
+  background: var(--border-strong);
+  border: none;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.react-flow__handle-top {
+  /* Sit just above the border so the tip meets the node edge. */
+  top: -6px;
+}
+
+.react-flow__handle-bottom {
+  bottom: -6px;
+}
+
+/* Dot grid in a muted tone -- present enough to gauge alignment, quiet enough
+   not to compete with the nodes. */
+.react-flow__background pattern circle {
+  fill: var(--border);
+}
+
+/* Controls + MiniMap: flat panels that match the app chrome rather than
+   floating widgets. */
+.react-flow__controls {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.react-flow__controls-button {
+  width: 24px;
+  height: 24px;
+  background: var(--surface);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.react-flow__controls-button svg {
+  max-width: 11px;
+  max-height: 11px;
+  fill: currentColor;
+}
+
+.react-flow__minimap {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-sunken);
+}
+
+.react-flow__minimap-mask {
+  fill: var(--scrim);
+}
+
+/* Selected nodes get a doubled border rather than a glow -- the only
+   shadowless way to read as "raised" without changing the node's footprint. */
+.react-flow__node.selected .fed-node {
+  border-color: var(--primary);
+  outline: 1px solid var(--primary);
+  outline-offset: 0;
+}
+
+.react-flow__edge-path {
+  stroke-linecap: butt;
+}
+
+.react-flow__attribution {
+  font-size: 9px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}

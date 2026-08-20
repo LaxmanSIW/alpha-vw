@@ -1,0 +1,415 @@
+/* ==========================================================================
+   Flat Enterprise Dashboard -- design tokens for Tailwind CSS v4
+
+   Drop-in: copy into your project (e.g. src/styles/tokens.css) and import it
+   as the FIRST import in your entry stylesheet, replacing @import "tailwindcss":
+
+     @import "tailwindcss";
+     @import "./styles/tokens.css";
+
+   Every contrast-sensitive value here was verified with
+   scripts/check_contrast.py. If you change a color, re-run that script --
+   in a shadowless design contrast is the only thing separating a foreground
+   from its background, so a regression here is a legibility bug, not a
+   cosmetic one.
+
+   Theme:   <html data-theme="light"> | data-theme="dark"
+   Density: <html data-density="compact"> | data-density="comfortable"
+   Both default to light / compact when the attribute is absent.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. RUNTIME VALUES
+   Raw values live on :root and get overridden by [data-theme]. @theme inline
+   (below) points the Tailwind utilities at these vars rather than copying the
+   values, which is what lets the theme flip at runtime without a rebuild.
+   -------------------------------------------------------------------------- */
+
+:root,
+[data-theme="light"] {
+  /* Surfaces -- three flat tone steps replace elevation. There is no fourth:
+     if you need more separation than this, you need a border, not a tone. */
+  --canvas:           #f4f6f8;    /* app background, the furthest-back plane */
+  --surface:          #ffffff;    /* panels, cards, rows */
+  --surface-sunken:   #edf0f3;    /* table headers, toolbars, inset wells */
+  --surface-hover:    #e8ecf0;
+  --surface-selected: #e4eaf6;
+
+  /* Borders -- two jobs, do not mix them up.
+     border:        decorative hairline (row rules, internal dividers)
+     border-strong: bounds a real control (input, button, checkbox) and must
+                    stay >= 3:1 against its background per WCAG 1.4.11 */
+  --border:        #d4d8de;
+  --border-strong: #868f9a;
+
+  /* Text */
+  --text:           #111418;
+  --text-secondary: #4a5560;
+  --text-muted:     #67727f;
+  --text-inverse:   #ffffff;
+
+  /* Brand */
+  --primary:        #0033a1;
+  --primary-hover:  #002878;
+  --primary-active: #001f5c;
+  --accent:         #00a8b0;    /* NOTE: light color -- pair with --text, not white */
+  --accent-hover:   #008a91;
+
+  /* Status: each is a foreground + a flat tinted fill, no gradients */
+  --success-fg: #0e6b40;
+  --success-bg: #e3f3ea;
+  --warning-fg: #8a5a00;
+  --warning-bg: #fdf1da;
+  --danger-fg:  #a81e1a;
+  --danger-bg:  #fbe6e5;
+  --info-fg:    #0033a1;
+  --info-bg:    #e4eaf6;
+
+  /* Focus -- a solid outline, never a box-shadow ring */
+  --focus: #0033a1;
+
+  /* Categorical chart series. series-2 and series-3 are deliberately DARKER
+     than --accent / a plain orange: brand teal #00A8B0 only reaches 2.91:1 on
+     white, below the 3:1 that informational marks require. Do not "fix" these
+     back to the brand values. */
+  --chart-1:    #0033a1;
+  --chart-2:    #009098;
+  --chart-3:    #cc6e00;
+  --chart-4:    #6b4fa8;
+  --chart-5:    #5a6672;
+  --chart-6:    #a8123e;
+  --chart-grid: #e4e7eb;
+  --chart-axis: #67727f;
+
+  /* Flat scrim for modals -- opacity only, no blur (blur reads as depth) */
+  --scrim: rgb(17 20 24 / 0.45);
+}
+
+[data-theme="dark"] {
+  --canvas:           #0d1116;
+  --surface:          #151a21;
+  --surface-sunken:   #1d242d;
+  --surface-hover:    #202832;
+  --surface-selected: #14203a;
+
+  --border:        #2a333e;
+  --border-strong: #63707c;
+
+  --text:           #e8ecf1;
+  --text-secondary: #a8b4c0;
+  --text-muted:     #7a8794;
+  --text-inverse:   #0d1116;
+
+  /* Brand blue is lightened for dark surfaces -- #0033A1 on #151A21 is
+     unreadable. The brand identity survives in hue, not in exact hex. */
+  --primary:        #4d8dff;
+  --primary-hover:  #6ba0ff;
+  --primary-active: #85b1ff;
+  --accent:         #2bc8d0;
+  --accent-hover:   #4fd6dd;
+
+  --success-fg: #4ecb8a;
+  --success-bg: #102a1d;
+  --warning-fg: #e0a93b;
+  --warning-bg: #2b2113;
+  --danger-fg:  #f0776f;
+  --danger-bg:  #2e1615;
+  --info-fg:    #7fb0ff;
+  --info-bg:    #14203a;
+
+  --focus: #7fb0ff;
+
+  --chart-1:    #5c8def;
+  --chart-2:    #2bc8d0;
+  --chart-3:    #f5a03c;
+  --chart-4:    #a98be0;
+  --chart-5:    #a8b4c0;
+  --chart-6:    #e8637f;
+  --chart-grid: #232b35;
+  --chart-axis: #7a8794;
+
+  --scrim: rgb(0 0 0 / 0.6);
+}
+
+/* --------------------------------------------------------------------------
+   2. DENSITY
+   Semantic size vars rather than a rescaled Tailwind spacing ramp. Components
+   read these, so one attribute flip retunes every control and row at once.
+   -------------------------------------------------------------------------- */
+
+:root,
+[data-density="compact"] {
+  --control-h:      28px;    /* buttons, inputs, selects */
+  --row-h:          32px;    /* table rows, tree rows, list items */
+  --icon-btn:       28px;    /* square icon button */
+  --text-size:      13px;
+  --text-size-sm:   12px;
+  --text-size-xs:   11px;
+  --gap:            8px;
+  --pad-x:          8px;
+  --pad-y:          4px;
+}
+
+[data-density="comfortable"] {
+  --control-h:      34px;
+  --row-h:          40px;
+  --icon-btn:       34px;
+  --text-size:      14px;
+  --text-size-sm:   13px;
+  --text-size-xs:   11px;
+  --gap:            12px;
+  --pad-x:          12px;
+  --pad-y:          8px;
+}
+
+/* Shell chrome -- fixed regardless of density so the frame stays stable while
+   content density changes. Referenced by the dashboard layout grid. */
+:root {
+  --header-h:     48px;
+  --divider-h:    3px;
+  --viewtabs-h:   34px;
+  --actionbar-h:  36px;
+  --footer-h:     24px;
+  --rail-w:       32px;     /* collapsed side panel rail */
+  --panel-w:      260px;    /* default expanded side panel width */
+  --panel-min-w:  180px;
+  --panel-max-w:  560px;
+}
+
+/* --------------------------------------------------------------------------
+   3. TAILWIND THEME BINDING
+   `inline` is essential: it makes utilities emit var(--surface) instead of
+   baking in #ffffff, so [data-theme] overrides take effect.
+   -------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-canvas:           var(--canvas);
+  --color-surface:          var(--surface);
+  --color-surface-sunken:   var(--surface-sunken);
+  --color-surface-hover:    var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+
+  --color-border:        var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text:           var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-muted);
+  --color-text-inverse:   var(--text-inverse);
+
+  --color-primary:        var(--primary);
+  --color-primary-hover:  var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-accent:         var(--accent);
+  --color-accent-hover:   var(--accent-hover);
+
+  --color-success-fg: var(--success-fg);
+  --color-success-bg: var(--success-bg);
+  --color-warning-fg: var(--warning-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger-fg:  var(--danger-fg);
+  --color-danger-bg:  var(--danger-bg);
+  --color-info-fg:    var(--info-fg);
+  --color-info-bg:    var(--info-bg);
+
+  --color-focus: var(--focus);
+  --color-scrim: var(--scrim);
+
+  --color-chart-1:    var(--chart-1);
+  --color-chart-2:    var(--chart-2);
+  --color-chart-3:    var(--chart-3);
+  --color-chart-4:    var(--chart-4);
+  --color-chart-5:    var(--chart-5);
+  --color-chart-6:    var(--chart-6);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+
+  /* Typography. IBM Plex Sans is the intent -- it was designed for dense
+     technical UI, and its open apertures and unambiguous 1/l/I hold up at
+     11-13px where geometric humanists blur. Install it locally so the UI does
+     not depend on a CDN: npm i @fontsource/ibm-plex-sans @fontsource/ibm-plex-mono
+     then import "@fontsource/ibm-plex-sans/400.css" (and 500, 600).
+     The fallbacks are ordered so an uninstalled build still looks deliberate. */
+  --font-sans: "IBM Plex Sans", "Inter", ui-sans-serif, system-ui,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas,
+    "Liberation Mono", monospace;
+
+  --text-xs:   var(--text-size-xs);
+  --text-sm:   var(--text-size-sm);
+  --text-base: var(--text-size);
+
+  /* Shell + density, exposed as utilities: h-header, w-rail, h-row, etc. */
+  --spacing-header:    var(--header-h);
+  --spacing-divider:   var(--divider-h);
+  --spacing-viewtabs:  var(--viewtabs-h);
+  --spacing-actionbar: var(--actionbar-h);
+  --spacing-footer:    var(--footer-h);
+  --spacing-rail:      var(--rail-w);
+  --spacing-panel:     var(--panel-w);
+  --spacing-control:   var(--control-h);
+  --spacing-row:       var(--row-h);
+  --spacing-icon-btn:  var(--icon-btn);
+
+  /* --- The flat mandate, enforced at the token layer -----------------
+     Zeroing every radius and nulling every shadow means a stray `rounded-lg`
+     or `shadow-md` from muscle memory, a snippet, or a component library still
+     renders flat. The design survives contact with imperfect code. */
+  --radius-xs:  0;
+  --radius-sm:  0;
+  --radius-md:  0;
+  --radius-lg:  0;
+  --radius-xl:  0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+
+  --shadow-2xs:       none;
+  --shadow-xs:        none;
+  --shadow-sm:        none;
+  --shadow-md:        none;
+  --shadow-lg:        none;
+  --shadow-xl:        none;
+  --shadow-2xl:       none;
+  --inset-shadow-2xs: none;
+  --inset-shadow-xs:  none;
+  --inset-shadow-sm:  none;
+  --drop-shadow-xs:   none;
+  --drop-shadow-sm:   none;
+  --drop-shadow-md:   none;
+  --drop-shadow-lg:   none;
+  --drop-shadow-xl:   none;
+  --drop-shadow-2xl:  none;
+}
+
+/* --------------------------------------------------------------------------
+   4. BASE LAYER
+   -------------------------------------------------------------------------- */
+
+@layer base {
+  * {
+    /* Belt-and-braces: tokens above already zero the utilities, this catches
+       raw CSS and third-party stylesheets (React Flow, date pickers, grids). */
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    color: var(--text);
+    background-color: var(--canvas);
+    /* Deliberately NOT font-size: var(--text-size).
+       Tailwind's spacing utilities are rem-based, so shrinking the root font to
+       13px silently rescales every p-*, gap-*, and w-* by 13/16 -- w-3 becomes
+       9.75px instead of 12px, and the 4px grid this system promises stops
+       existing. Worse, the density toggle would then rescale spacing twice:
+       once through the root font and again through --gap / --pad-x.
+       Keep the root at the browser default and set the text size on body. */
+  }
+
+  body {
+    margin: 0;
+    font-size: var(--text-size);
+    /* Dashboards are application chrome, not documents -- the page itself
+       never scrolls, individual panes do. */
+    overflow: hidden;
+  }
+
+  /* Tabular figures everywhere by default. In a dashboard, digits sit in
+     columns and change on refresh; proportional figures make them jitter and
+     misalign, which reads as sloppiness and makes scanning a column hard. */
+  body,
+  table,
+  input,
+  select,
+  textarea,
+  button {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Headings: tight tracking is what makes flat type read as "sharp". At
+     display sizes default letter-spacing looks loose and soft. */
+  h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.011em;
+    color: var(--text);
+  }
+
+  /* Focus: a real outline, offset so it reads against the control's own
+     border. Tailwind's ring-* utilities compile to box-shadow and are nulled
+     by the base rule above -- use outline utilities instead, or focus-visible
+     inherits this. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Square, flat scrollbars. The default rounded thumb is the single most
+     common thing that undermines a sharp-edged UI. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 2px solid var(--canvas); /* inset effect without a radius */
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. UTILITIES
+   -------------------------------------------------------------------------- */
+
+@layer utilities {
+  /* Opt out of tabular figures for prose, where proportional reads better. */
+  .pnum {
+    font-variant-numeric: proportional-nums;
+    font-feature-settings: "pnum" 1;
+  }
+
+  /* Uppercase micro-label for column headers and section eyebrows. Wide
+     tracking is required here: uppercase at 11px is unreadable set tight. */
+  .label-caps {
+    font-size: var(--text-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Vertical text for collapsed side rails. */
+  .text-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  .text-vertical-rev {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    text-orientation: mixed;
+  }
+}
