@@ -11,12 +11,25 @@ import { RESERVED_KEYS, type FieldDef, type FieldFormat } from './config/viewCon
 
 const STATUS_LABELS: Record<string, string> = {
   ok: 'Completed',
-  warning: 'Wait for Event',
-  danger: 'Failed',
   completed: 'Completed',
+  'ended ok': 'Completed',
+  success: 'Completed',
+
   executing: 'Executing',
+  execution: 'Executing',
+  running: 'Executing',
+
   'wait for event': 'Wait for Event',
+  'wait event': 'Wait for Event',
+  waiting: 'Wait for Event',
+  warning: 'Wait for Event',
+  hold: 'Wait for Event',
+
   failed: 'Failed',
+  danger: 'Failed',
+  error: 'Failed',
+  'ended notok': 'Failed',
+  notok: 'Failed',
 }
 
 export function formatFieldValue(value: unknown, format: FieldFormat = 'text'): string {
@@ -29,23 +42,33 @@ export function formatFieldValue(value: unknown, format: FieldFormat = 'text'): 
 }
 
 export function statusToneClass(value: unknown): string {
-  if (!value) return 'text-text-secondary'
+  if (!value) return 'text-slate-400 font-semibold'
   const s = String(value).toLowerCase().trim()
-  if (s === 'completed' || s === 'ok') return 'text-success-fg font-semibold'
-  if (s === 'executing') return 'text-primary font-semibold'
-  if (s === 'wait for event' || s === 'warning') return 'text-warning-fg font-semibold'
-  if (s === 'failed' || s === 'danger') return 'text-danger-fg font-semibold'
-  return 'text-text-secondary'
+  if (s === 'executing' || s === 'execution' || s === 'running') return 'text-orange-400 font-semibold'
+  if (s === 'wait for event' || s === 'wait event' || s === 'waiting' || s === 'warning' || s === 'hold') return 'text-slate-400 font-semibold'
+  if (s === 'completed' || s === 'ok' || s === 'ended ok' || s === 'success') return 'text-emerald-400 font-semibold'
+  if (s === 'failed' || s === 'danger' || s === 'error' || s === 'ended notok' || s === 'notok') return 'text-rose-500 font-semibold'
+  return 'text-slate-400 font-semibold'
 }
 
 export function statusColorClass(value: unknown): string {
-  if (!value) return 'bg-text-muted'
+  if (!value) return 'bg-slate-400'
   const s = String(value).toLowerCase().trim()
-  if (s === 'failed' || s === 'danger') return 'bg-danger-fg'
-  if (s === 'executing') return 'bg-primary'
-  if (s === 'wait for event' || s === 'warning') return 'bg-warning-fg'
-  if (s === 'completed' || s === 'ok') return 'bg-success-fg'
-  return 'bg-text-muted'
+  if (s === 'executing' || s === 'execution' || s === 'running') return 'bg-orange-500'
+  if (s === 'wait for event' || s === 'wait event' || s === 'waiting' || s === 'warning' || s === 'hold') return 'bg-slate-400'
+  if (s === 'completed' || s === 'ok' || s === 'ended ok' || s === 'success') return 'bg-emerald-500'
+  if (s === 'failed' || s === 'danger' || s === 'error' || s === 'ended notok' || s === 'notok') return 'bg-rose-500'
+  return 'bg-slate-400'
+}
+
+export function statusBadgeClass(value: unknown): string {
+  if (!value) return 'bg-slate-500/20 text-slate-300 border-slate-500/40'
+  const s = String(value).toLowerCase().trim()
+  if (s === 'executing' || s === 'execution' || s === 'running') return 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
+  if (s === 'wait for event' || s === 'wait event' || s === 'waiting' || s === 'warning' || s === 'hold') return 'bg-slate-500/20 text-slate-300 border border-slate-500/40'
+  if (s === 'completed' || s === 'ok' || s === 'ended ok' || s === 'success') return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+  if (s === 'failed' || s === 'danger' || s === 'error' || s === 'ended notok' || s === 'notok') return 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+  return 'bg-slate-500/20 text-slate-300 border border-slate-500/40'
 }
 
 /** Resolves a field against a node, including the reserved node-level keys. */

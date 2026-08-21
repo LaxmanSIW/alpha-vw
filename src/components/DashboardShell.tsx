@@ -41,6 +41,9 @@ const NO_TABS: string[] = []
 
 import CreateViewpointModal from './CreateViewpointModal'
 import EditViewpointModal from './EditViewpointModal'
+import CalendarManagerModal from './CalendarManagerModal'
+import ScheduleManagerModal from './ScheduleManagerModal'
+import ViewScheduleModal from './ViewScheduleModal'
 import Icon from './Icon'
 import { transformViewpointData } from '../viewpointTransformer'
 import { deleteTableRow } from '../api/client'
@@ -49,6 +52,9 @@ function DashboardShell() {
   const [theme, setTheme] = useState<ThemeName>('light')
   const [density, setDensity] = useState<DensityName>('compact')
   const [isAdminOpen, setIsAdminOpen] = useState(false)
+  const [isCalendarManagerOpen, setIsCalendarManagerOpen] = useState(false)
+  const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false)
+  const [scheduleModalNode, setScheduleModalNode] = useState<Node | null>(null)
   const [isCreateViewpointOpen, setIsCreateViewpointOpen] = useState(false)
   const [editingViewpoint, setEditingViewpoint] = useState<Viewpoint | null>(null)
 
@@ -316,6 +322,13 @@ function DashboardShell() {
       const fromNode = nodes.find((node) => node.id === nodeId)
       if (!fromNode || !contextMenu) return
 
+      if (actionId === 'schedule') {
+        setContextMenu(null)
+        setContextList(null)
+        setScheduleModalNode(fromNode)
+        return
+      }
+
       const relation = actionId === 'predecessors' ? 'predecessors' : 'successors'
       const map = new Map(
         nodes.map((node) => [
@@ -367,6 +380,8 @@ function DashboardShell() {
         density={density}
         onDensityToggle={() => setDensity((d) => (d === 'compact' ? 'comfortable' : 'compact'))}
         onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenCalendars={() => setIsCalendarManagerOpen(true)}
+        onOpenSchedules={() => setIsScheduleManagerOpen(true)}
       />
 
       <div
@@ -547,6 +562,10 @@ function DashboardShell() {
             selectedNode={selectedNode}
             nodeCount={jobNodes.length}
             edgeCount={edges.length}
+            onOpenViewSchedule={(nodeId) => {
+              const targetNode = nodes.find((n) => n.id === nodeId)
+              if (targetNode) setScheduleModalNode(targetNode)
+            }}
           />
         </SidePanel>
       </div>
@@ -603,6 +622,23 @@ function DashboardShell() {
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
         onDataChanged={() => loadData(true)}
+      />
+
+      <CalendarManagerModal
+        isOpen={isCalendarManagerOpen}
+        onClose={() => setIsCalendarManagerOpen(false)}
+      />
+
+      <ScheduleManagerModal
+        isOpen={isScheduleManagerOpen}
+        onClose={() => setIsScheduleManagerOpen(false)}
+      />
+
+      <ViewScheduleModal
+        isOpen={Boolean(scheduleModalNode)}
+        nodeLabel={scheduleModalNode ? (scheduleModalNode.data?.label as string) || scheduleModalNode.id : ''}
+        scheduleName={scheduleModalNode ? (scheduleModalNode.data?.schedule as string) || 'DAILY_PROD_RUN' : 'DAILY_PROD_RUN'}
+        onClose={() => setScheduleModalNode(null)}
       />
     </div>
   )

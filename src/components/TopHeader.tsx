@@ -12,6 +12,8 @@ interface TopHeaderProps {
   density: DensityName
   onDensityToggle: () => void
   onOpenAdmin?: () => void
+  onOpenCalendars?: () => void
+  onOpenSchedules?: () => void
 }
 
 /**
@@ -31,6 +33,8 @@ function TopHeader({
   density,
   onDensityToggle,
   onOpenAdmin,
+  onOpenCalendars,
+  onOpenSchedules,
 }: TopHeaderProps) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
 
@@ -59,7 +63,7 @@ function TopHeader({
               className={[
                 'px-3 text-sm transition-colors duration-75',
                 isActive
-                  ? 'font-medium text-primary'
+                  ? 'border-b-2 border-primary font-semibold text-text'
                   : 'text-text-secondary hover:text-text',
               ].join(' ')}
             >
@@ -71,22 +75,12 @@ function TopHeader({
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1 pr-2 relative">
-        {/* Direct Admin Shortcut Button */}
-        <button
-          type="button"
-          onClick={onOpenAdmin}
-          className="flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/30"
-          title="Open Admin Management Panel"
-        >
-          <Icon name="settings" size={13} />
-          <span>Admin DB</span>
-        </button>
-
+      <div className="flex items-center gap-1.5 px-3">
         <IconButton
           icon="theme"
           title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
           onClick={onThemeToggle}
+          active={theme === 'dark'}
         />
         <IconButton
           icon="density"
@@ -120,23 +114,51 @@ function TopHeader({
                 className="fixed inset-0 z-40"
                 onClick={() => setAccountMenuOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-1 z-50 w-56 border border-border bg-surface shadow-lg text-text py-1 text-xs">
-                <div className="px-3 py-2 border-b border-border bg-surface-sunken">
+              <div className="absolute right-0 top-full mt-1 z-50 w-60 border border-border bg-surface shadow-lg text-text py-1 text-xs divide-y divide-border">
+                <div className="px-3 py-2 bg-surface-sunken">
                   <p className="font-semibold text-text">Lead Developer (LD)</p>
                   <p className="text-text-muted text-[11px]">admin@alphavw.io</p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAccountMenuOpen(false)
-                    onOpenAdmin?.()
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-primary font-medium"
-                >
-                  <Icon name="settings" size={14} />
-                  <span>Admin Database Panel</span>
-                </button>
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false)
+                      onOpenCalendars?.()
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-text font-medium"
+                  >
+                    <Icon name="calendar" size={14} className="text-primary" />
+                    <span>Calendar Manager (RBC)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false)
+                      onOpenSchedules?.()
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-text font-medium"
+                  >
+                    <Icon name="calendar" size={14} className="text-accent" />
+                    <span>Schedule Manager</span>
+                  </button>
+                </div>
+
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false)
+                      onOpenAdmin?.()
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-primary font-semibold"
+                  >
+                    <Icon name="settings" size={14} />
+                    <span>Admin Database Panel</span>
+                  </button>
+                </div>
 
                 <div className="border-t border-border my-1" />
 

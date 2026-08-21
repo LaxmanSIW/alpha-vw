@@ -96,10 +96,14 @@ function TreeRow({
             />
           </button>
         ) : (
-          <span
-            aria-hidden="true"
-            className={`h-2.5 w-2.5 shrink-0 ${statusColorClass(item.data?.status)}`}
-          />
+          <>
+            {/* Spacer matching the folder chevron width so status square aligns under the folder label */}
+            <span aria-hidden="true" className="size-4 shrink-0" />
+            <span
+              aria-hidden="true"
+              className={`h-2.5 w-2.5 shrink-0 ${statusColorClass(item.data?.status)}`}
+            />
+          </>
         )}
 
         <span className="truncate">{item.label}</span>

@@ -33,6 +33,7 @@ export type IconName =
   | 'zoom-fit'
   | 'check'
   | 'x'
+  | 'calendar'
 
 const PATHS: Record<IconName, React.ReactNode> = {
   'chevron-left': <polyline points="10,3 5,8 10,13" />,
@@ -158,6 +159,14 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <rect x="2" y="2" width="12" height="12" />
       <polyline points="5,7 5,5 7,5" />
       <polyline points="11,9 11,11 9,11" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="2" y="3" width="12" height="11" />
+      <line x1="2" y1="6" x2="14" y2="6" />
+      <line x1="5" y1="1" x2="5" y2="4" />
+      <line x1="11" y1="1" x2="11" y2="4" />
     </>
   ),
 }

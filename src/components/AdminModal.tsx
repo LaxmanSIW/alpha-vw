@@ -17,6 +17,8 @@ export type TableName =
   | 'node_logs'
   | 'field_definitions'
   | 'node_field_values'
+  | 'calendars'
+  | 'schedule_configs'
 export type AdminTab = TableName | 'bulk_csv'
 
 interface ColumnDef {
@@ -59,10 +61,14 @@ function buildNavNodeColumns(customFieldDefs: ColumnDef[] = []): ColumnDef[] {
     },
   ]
 
+  const fixedKeys = new Set(fixedPrefix.map((c) => c.key))
+
   const mergedMap = new Map<string, ColumnDef>()
   staticDefs.forEach((f) => {
+    if (fixedKeys.has(f.key)) return
     let colType: 'text' | 'number' | 'select' = 'text'
     let options: Array<{ value: string; label: string }> | undefined
+    let relationalTable: TableName | undefined
 
     if (f.key === 'runs' || f.key === 'sort_order') {
       colType = 'number'
@@ -74,7 +80,7 @@ function buildNavNodeColumns(customFieldDefs: ColumnDef[] = []): ColumnDef[] {
         { value: 'Wait for Event', label: 'Wait for Event' },
         { value: 'Failed', label: 'Failed' },
       ]
-    } else if (f.key === 'node_kind' || f.key === 'kind') {
+    } else if (f.key === 'node_kind') {
       colType = 'select'
       options = [
         { value: 'Service', label: 'Service' },
@@ -83,6 +89,9 @@ function buildNavNodeColumns(customFieldDefs: ColumnDef[] = []): ColumnDef[] {
         { value: 'Store', label: 'Store' },
         { value: 'Sink', label: 'Sink' },
       ]
+    } else if (f.key === 'schedule') {
+      colType = 'select'
+      relationalTable = 'schedule_configs'
     }
 
     mergedMap.set(f.key, {
@@ -90,19 +99,24 @@ function buildNavNodeColumns(customFieldDefs: ColumnDef[] = []): ColumnDef[] {
       label: f.label,
       type: colType,
       options,
+      relationalTable,
     })
   })
 
   // Merge dynamic DB field definitions
   customFieldDefs.forEach((f) => {
-    if (!mergedMap.has(f.key)) {
-      mergedMap.set(f.key, f)
+    if (!fixedKeys.has(f.key) && !mergedMap.has(f.key)) {
+      if (f.key === 'schedule') {
+        mergedMap.set(f.key, { ...f, type: 'select', relationalTable: 'schedule_configs' })
+      } else {
+        mergedMap.set(f.key, f)
+      }
     }
   })
 
   const dynamicColumns = Array.from(mergedMap.values())
 
-  if (!dynamicColumns.some((c) => c.key === 'sort_order')) {
+  if (!fixedKeys.has('sort_order') && !dynamicColumns.some((c) => c.key === 'sort_order')) {
     dynamicColumns.push({ key: 'sort_order', label: 'Sort Order', type: 'number' })
   }
 
@@ -390,6 +404,8 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
     node_logs: [],
     field_definitions: [],
     node_field_values: [],
+    calendars: [],
+    schedule_configs: [],
   })
 
   // Form State
@@ -406,10 +422,11 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
   // Load relational lookup options
   const loadRelationalOptions = useCallback(async () => {
     try {
-      const [modulesData, nodesData, fieldsData] = await Promise.all([
+      const [modulesData, nodesData, fieldsData, schedulesData] = await Promise.all([
         fetchTableRows<{ id: string; label: string }>('modules'),
         fetchTableRows<{ id: string; label: string; kind: string }>('nav_nodes'),
         fetchTableRows<{ key: string; label: string; role: string; format: string }>('field_definitions'),
+        fetchTableRows<{ id: string; name: string }>('schedule_configs'),
       ])
 
       const dynamicCols: ColumnDef[] = fieldsData.map((f) => ({
@@ -425,11 +442,13 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
           value: n.id,
           label: `${n.label} (${n.id}) [${n.kind}]`,
         })),
+        schedule_configs: schedulesData.map((s) => ({ value: s.name, label: s.name })),
         viewpoints: [],
         edges: [],
         node_logs: [],
         field_definitions: [],
         node_field_values: [],
+        calendars: [],
       })
     } catch (err) {
       console.warn('Failed to load lookup options:', err)
@@ -579,7 +598,7 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
-      <div className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden border border-border bg-surface shadow-2xl text-text">
+      <div className="flex h-[88vh] w-full max-w-[94vw] 2xl:max-w-7xl flex-col overflow-hidden border border-border bg-surface shadow-2xl text-text">
         {/* Header Bar */}
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-surface-sunken px-4">
           <div className="flex items-center gap-2">

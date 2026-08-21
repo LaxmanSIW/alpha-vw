@@ -4,6 +4,17 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      external: [
+        'sqlite3',
+        'better-sqlite3',
+        'express',
+        'cors',
+      ],
+    },
+  },
   server: {
     proxy: {
       '/api': {

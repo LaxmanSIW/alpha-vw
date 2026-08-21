@@ -59,14 +59,37 @@ export async function createTableRow(table: string, data: Record<string, unknown
 }
 
 export async function bulkCreateRows(table: string, rows: Record<string, unknown>[]): Promise<{ success: boolean; count: number }> {
-  const res = await fetch(`${API_BASE}/crud/bulk/${encodeURIComponent(table)}`, {
+  const res = await fetch(`${API_BASE}/crud/${encodeURIComponent(table)}/bulk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
   })
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.error || `Failed to bulk insert into ${table}`)
+    throw new Error(errorData.error || `Failed bulk insert into ${table}`)
+  }
+  return res.json()
+}
+
+export interface SingleDateEvaluationResult {
+  success: boolean
+  date: string
+  isEligible: boolean
+  effectiveRunDate: string | null
+}
+
+export async function evaluateSingleDate(
+  config: Record<string, unknown>,
+  dateStr: string
+): Promise<SingleDateEvaluationResult> {
+  const res = await fetch(`${API_BASE}/schedules/evaluate-date`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config, date: dateStr }),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || 'Failed to evaluate date')
   }
   return res.json()
 }

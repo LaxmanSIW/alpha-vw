@@ -1,11 +1,34 @@
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { all, getNavTree, initDb, run } from './db.js'
+import { getEligibleRunDates, evaluateScheduledDate, ScheduleConfig } from './schedule.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const distPath = path.join(__dirname, '..', 'dist')
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
-const ALLOWED_TABLES = ['modules', 'viewpoints', 'nav_nodes', 'edges', 'node_logs', 'field_definitions', 'node_field_values']
+app.use(cors())
+app.use(express.json())
+
+// Serve static production build files from dist/
+app.use(express.static(distPath))
+
+const ALLOWED_TABLES = [
+  'modules',
+  'viewpoints',
+  'nav_nodes',
+  'edges',
+  'node_logs',
+  'field_definitions',
+  'node_field_values',
+  'calendars',
+  'schedule_configs',
+]
 const FIXED_NAV_NODE_COLUMNS = [
   'id',
   'label',
@@ -43,6 +66,30 @@ function prepareNavNodeRecord(data) {
 
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
+
+// Schedule evaluation endpoint
+app.post('/api/schedules/evaluate', async (req, res) => {
+  try {
+    const { config, year = new Date().getUTCFullYear() } = req.body
+    if (!config) {
+      return res.status(400).json({ error: 'Missing schedule configuration' })
+    }
+    const schedule = new ScheduleConfig(config)
+    const datesOrValidation = getEligibleRunDates(schedule, Number(year))
+    if (!Array.isArray(datesOrValidation)) {
+      return res.status(400).json({ error: 'Validation failed', details: datesOrValidation })
+    }
+    const dateStrings = datesOrValidation.map((d) => {
+      const y = d.getUTCFullYear()
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(d.getUTCDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    })
+    res.json({ success: true, year, eligibleDates: dateStrings })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
 // Combined dashboard payload for fast loading and refresh
 app.get('/api/data', async (req, res) => {
@@ -311,6 +358,113 @@ app.delete('/api/crud/:table/:id', async (req, res) => {
     console.error(`Error deleting from ${table}:`, err)
     res.status(500).json({ error: err.message })
   }
+})
+
+// Endpoint to evaluate scheduled run dates for a given configuration
+app.post('/api/schedules/evaluate', async (req, res) => {
+  try {
+    const { config, year } = req.body
+    if (!config) {
+      return res.status(400).json({ error: 'Config object is required' })
+    }
+
+    const targetYear = Number(year) || new Date().getUTCFullYear()
+
+    // Fetch all active database calendars to hydrate config.CALENDARS
+    const calRows = await all('SELECT * FROM calendars')
+    const calendarsMap = {}
+    calRows.forEach((c) => {
+      let workdays = [1, 2, 3, 4, 5]
+      let holidays = []
+      try {
+        if (c.workdays) workdays = typeof c.workdays === 'string' ? JSON.parse(c.workdays) : c.workdays
+        if (c.holidays) holidays = typeof c.holidays === 'string' ? JSON.parse(c.holidays) : c.holidays
+      } catch (e) {}
+      calendarsMap[c.name] = { WORKDAYS: workdays, HOLIDAYS: holidays }
+    })
+
+    const fullConfig = {
+      ...config,
+      CALENDARS: {
+        ...calendarsMap,
+        ...(config.CALENDARS || {}),
+      },
+    }
+
+    const result = getEligibleRunDates(fullConfig, targetYear)
+    const eligibleDates = Array.isArray(result)
+      ? result.map((d) => d.toISOString().split('T')[0])
+      : []
+
+    res.json({ success: true, year: targetYear, eligibleDates })
+  } catch (err) {
+    console.error('Error evaluating schedule dates:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Endpoint to evaluate whether a SINGLE specific date is an eligible run date
+app.post('/api/schedules/evaluate-date', async (req, res) => {
+  try {
+    const { config, date } = req.body
+    if (!config || !date) {
+      return res.status(400).json({ error: 'Config object and date string (YYYY-MM-DD) are required' })
+    }
+
+    const dateParts = String(date).split('-')
+    if (dateParts.length !== 3) {
+      return res.status(400).json({ error: 'Invalid date format. Expected YYYY-MM-DD' })
+    }
+
+    const targetDate = new Date(Date.UTC(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2])))
+
+    // Fetch all active database calendars to hydrate config.CALENDARS
+    const calRows = await all('SELECT * FROM calendars')
+    const calendarsMap = {}
+    calRows.forEach((c) => {
+      let workdays = [1, 2, 3, 4, 5]
+      let holidays = []
+      try {
+        if (c.workdays) workdays = typeof c.workdays === 'string' ? JSON.parse(c.workdays) : c.workdays
+        if (c.holidays) holidays = typeof c.holidays === 'string' ? JSON.parse(c.holidays) : c.holidays
+      } catch (e) {}
+      calendarsMap[c.name] = { WORKDAYS: workdays, HOLIDAYS: holidays }
+    })
+
+    const fullConfig = {
+      ...config,
+      CALENDARS: {
+        ...calendarsMap,
+        ...(config.CALENDARS || {}),
+      },
+    }
+
+    const effectiveDate = evaluateScheduledDate(targetDate, fullConfig)
+    const isEligible = effectiveDate !== null
+    const effectiveRunDate = effectiveDate ? effectiveDate.toISOString().split('T')[0] : null
+
+    res.json({
+      success: true,
+      date: String(date),
+      isEligible,
+      effectiveRunDate,
+    })
+  } catch (err) {
+    console.error('Error evaluating single date:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// SPA Fallback: serve dist/index.html for non-API GET requests
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    return res.sendFile(path.join(distPath, 'index.html'), (err) => {
+      if (err) {
+        next()
+      }
+    })
+  }
+  next()
 })
 
 // Initialize DB then start server

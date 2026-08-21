@@ -250,7 +250,13 @@ export function buildContextMenuItems(
 }
 
 export function getContextMenuActionOptions(actions: ContextMenuAction[] = []) {
-  return actions.length > 0 ? actions : [{ id: 'predecessors', label: 'Predecessors', kind: 'predecessors' }, { id: 'successors', label: 'Successors', kind: 'successors' }]
+  return actions.length > 0
+    ? actions
+    : [
+        { id: 'predecessors', label: 'Predecessors', kind: 'predecessors' },
+        { id: 'successors', label: 'Successors', kind: 'successors' },
+        { id: 'schedule', label: 'Schedule (RBC Calendar)', kind: 'schedule' },
+      ]
 }
 
 export function nextContextMenuState(

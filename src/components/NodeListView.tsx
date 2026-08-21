@@ -3,7 +3,7 @@ import type { Node } from '@xyflow/react'
 import Icon from './Icon'
 import type { FlatNodeData } from './FlatNode'
 import { NODE_FIELDS, RESERVED_KEYS } from '../config/viewConfig'
-import { formatFieldValue } from '../fields'
+import { formatFieldValue, statusBadgeClass, statusColorClass } from '../fields'
 
 interface NodeListViewProps {
   nodes: Node[]
@@ -236,28 +236,14 @@ function NodeListView({ nodes, selectedId, onSelect }: NodeListViewProps) {
 }
 
 function StatusCell({ status }: { status: unknown }) {
-  const s = String(status ?? '').toLowerCase().trim()
-
-  let tone = 'bg-surface-sunken text-text-muted'
-  let label = String(status ?? '--')
-
-  if (s === 'completed' || s === 'ok') {
-    tone = 'bg-success-bg text-success-fg font-semibold'
-    label = 'Completed'
-  } else if (s === 'executing') {
-    tone = 'bg-primary/20 text-primary font-semibold'
-    label = 'Executing'
-  } else if (s === 'wait for event' || s === 'warning') {
-    tone = 'bg-warning-bg text-warning-fg font-semibold'
-    label = 'Wait for Event'
-  } else if (s === 'failed' || s === 'danger') {
-    tone = 'bg-danger-bg text-danger-fg font-semibold'
-    label = 'Failed'
-  }
+  const label = formatFieldValue(status, 'status')
+  const badgeClass = statusBadgeClass(status)
+  const dotClass = statusColorClass(status)
 
   return (
-    <span className={`inline-block px-1.5 py-0.5 text-xs ${tone}`}>
-      {label}
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded ${badgeClass}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      <span>{label}</span>
     </span>
   )
 }
