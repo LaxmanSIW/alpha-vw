@@ -3,7 +3,7 @@ import type { Node } from '@xyflow/react'
 import Icon from './Icon'
 import type { FlatNodeData } from './FlatNode'
 import { NODE_FIELDS, RESERVED_KEYS } from '../config/viewConfig'
-import { formatFieldValue, statusBadgeClass, statusColorClass } from '../fields'
+import { formatFieldValue, statusBadgeStyle, statusHex } from '../fields'
 
 interface NodeListViewProps {
   nodes: Node[]
@@ -237,12 +237,15 @@ function NodeListView({ nodes, selectedId, onSelect }: NodeListViewProps) {
 
 function StatusCell({ status }: { status: unknown }) {
   const label = formatFieldValue(status, 'status')
-  const badgeClass = statusBadgeClass(status)
-  const dotClass = statusColorClass(status)
+  const badgeStyle = statusBadgeStyle(status)
+  const dotColor = statusHex(status)
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded ${badgeClass}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+    <span
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded"
+      style={badgeStyle}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
       <span>{label}</span>
     </span>
   )

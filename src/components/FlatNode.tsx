@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { RELATION_COLOR, type RelationKind } from '../graph'
+import { getRelationColor, getRelationOutlineWidth, type RelationKind } from '../graph'
 import { NODE_FIELDS, STATUS_KEY, RESERVED_KEYS } from '../config/viewConfig'
-import { formatFieldValue, statusToneClass, statusColorClass } from '../fields'
+import { formatFieldValue, statusHex, statusTextStyle } from '../fields'
 import type { FieldDefinition } from '../types'
 
 export interface FlatNodeData extends Record<string, unknown> {
@@ -36,7 +36,7 @@ function FlatNode({ id, data, selected }: NodeProps) {
   const node = data as FlatNodeData
   const { expanded = false, relation = 'none' } = node
 
-  const stripe = statusColorClass(node[STATUS_KEY])
+  const stripe = statusHex(node[STATUS_KEY])
 
   const dynamicFieldDefs = ((node as Record<string, unknown>).fieldDefinitions ?? []) as FieldDefinition[]
 
@@ -61,7 +61,8 @@ function FlatNode({ id, data, selected }: NodeProps) {
   }, [dynamicFieldDefs, node])
 
   const isRelated = relation !== 'none'
-  const relationColor = isRelated ? RELATION_COLOR[relation] : undefined
+  const relationColor = isRelated ? getRelationColor(relation as Exclude<RelationKind, 'none'>) : undefined
+  const outlineWidth = isRelated ? getRelationOutlineWidth() : 0
 
   function valueOf(field: { key: string; format?: string }): string {
     if (field.key === RESERVED_KEYS.id || field.key === 'id') return id
@@ -100,13 +101,11 @@ function FlatNode({ id, data, selected }: NodeProps) {
       ].join(' ')}
       style={
         relationColor
-          ? // Border plus a same-colour outline reads as a 2px emphasis without
-            // changing the box's footprint, so nothing reflows on selection.
-            { borderColor: relationColor, outline: `1px solid ${relationColor}` }
+          ? { borderColor: relationColor, outline: `${outlineWidth}px solid ${relationColor}` }
           : undefined
       }
     >
-      <span aria-hidden="true" className={`w-1 shrink-0 ${stripe}`} />
+      <span aria-hidden="true" className="w-1 shrink-0" style={{ backgroundColor: stripe }} />
 
       <div className="min-w-0 flex-1">
         <div className="px-2 py-1.5">
@@ -133,11 +132,9 @@ function FlatNode({ id, data, selected }: NodeProps) {
                 <dd
                   className={[
                     'min-w-0 truncate text-xs',
-                    field.format === 'mono' ? 'font-mono' : '',
-                    field.format === 'status'
-                      ? statusToneClass(node[field.key])
-                      : 'text-text-secondary',
+                    field.format === 'mono' ? 'font-mono text-text-secondary' : 'text-text-secondary',
                   ].join(' ')}
+                  style={field.format === 'status' ? statusTextStyle(node[field.key]) : undefined}
                 >
                   {valueOf(field)}
                 </dd>

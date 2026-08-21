@@ -1,5 +1,5 @@
 import type { Edge, Node } from '@xyflow/react'
-import { LAYOUT } from './config/viewConfig'
+import { getLayout } from './config/viewConfig'
 import type { NavItem } from './types'
 
 /**
@@ -138,6 +138,7 @@ export function layoutHierarchy(
     const children = item.children ?? []
 
     if (item.kind !== 'folder' || children.length === 0) {
+      const LAYOUT = getLayout()
       const size = {
         width: LAYOUT.nodeWidth,
         height: expandedJobs ? LAYOUT.nodeHeight : LAYOUT.nodeCollapsedHeight,
@@ -170,9 +171,10 @@ export function layoutHierarchy(
 
     const orderedLayers = [...rows.keys()].sort((a, b) => a - b)
     // Containers sit further apart than jobs so the grouping reads clearly.
-    const gap = children.some((child) => child.kind === 'folder') ? GROUP.gap : LAYOUT.vGap
+    const gap = children.some((child) => child.kind === 'folder') ? GROUP.gap : getLayout().vGap
 
     const rowWidths = orderedLayers.map((index) => {
+      const LAYOUT = getLayout()
       const row = rows.get(index)!
       return (
         row.reduce((sum, child) => sum + childSizes.get(child.id)!.width, 0) +
@@ -190,6 +192,7 @@ export function layoutHierarchy(
       let rowHeight = 0
 
       for (const child of row) {
+        const LAYOUT = getLayout()
         const size = childSizes.get(child.id)!
         positions.set(child.id, { x, y })
         x += size.width + LAYOUT.hGap
@@ -228,11 +231,12 @@ export function layoutHierarchy(
     const row = rootRows.get(index)!
     const rowWidth =
       row.reduce((sum, item) => sum + rootSizes.get(item.id)!.width, 0) +
-      (row.length - 1) * LAYOUT.hGap
+      (row.length - 1) * getLayout().hGap
 
     let x = -rowWidth / 2
     let rowHeight = 0
     for (const item of row) {
+      const LAYOUT = getLayout()
       const size = rootSizes.get(item.id)!
       positions.set(item.id, { x, y: rootY })
       x += size.width + LAYOUT.hGap

@@ -12,9 +12,10 @@ import {
 import FlatNode from './FlatNode'
 import ContainerNode from './ContainerNode'
 import {
-  RELATION_COLOR,
   RELATION_LABEL,
   edgeRelation,
+  getRelationColor,
+  getRelationOutlineWidth,
   getRelations,
   relationOf,
 } from '../graph'
@@ -82,9 +83,7 @@ function FlowCanvas({
         }
         return {
           ...edge,
-          // 2px reads as emphasis without a glow. Animated to reinforce
-          // direction for anyone who cannot separate the two hues.
-          style: { stroke: RELATION_COLOR[relation], strokeWidth: 2 },
+          style: { stroke: getRelationColor(relation), strokeWidth: 2 },
           animated: true,
           zIndex: 2,
         }
@@ -92,7 +91,6 @@ function FlowCanvas({
     [edges, selectedNodeId, relations],
   )
 
-  console.log(nodeTypes)
   return (
     <ReactFlow
       nodes={displayNodes}
@@ -144,7 +142,7 @@ function RelationLegend() {
             <span
               aria-hidden="true"
               className="h-2.5 w-2.5 shrink-0"
-              style={{ backgroundColor: RELATION_COLOR[kind] }}
+            style={{ backgroundColor: getRelationColor(kind) }}
             />
             <span className="label-caps">{RELATION_LABEL[kind]}</span>
           </li>

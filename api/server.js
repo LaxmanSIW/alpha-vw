@@ -28,6 +28,7 @@ const ALLOWED_TABLES = [
   'node_field_values',
   'calendars',
   'schedule_configs',
+  'app_config',
 ]
 const FIXED_NAV_NODE_COLUMNS = [
   'id',
@@ -103,6 +104,7 @@ app.get('/api/data', async (req, res) => {
     const fieldDefinitions = await all(
       'SELECT key, label, section_title as sectionTitle, role, format, sort_order as sortOrder, is_protected as isProtected, show_on_card as showOnCard, show_in_details as showInDetails, is_active as isActive FROM field_definitions ORDER BY sort_order ASC'
     )
+    const appConfig = await all('SELECT key, category, label, value, sort_order as sortOrder FROM app_config ORDER BY category ASC, sort_order ASC')
 
     res.json({
       modules,
@@ -110,6 +112,7 @@ app.get('/api/data', async (req, res) => {
       navTree,
       edges,
       fieldDefinitions,
+      appConfig,
     })
   } catch (err) {
     console.error('Error fetching dashboard data:', err)
@@ -318,7 +321,7 @@ app.put('/api/crud/:table/:id', async (req, res) => {
     data = prepareNavNodeRecord(rawData)
   }
 
-  const pkColumn = table === 'field_definitions' ? 'key' : 'id'
+  const pkColumn = (table === 'field_definitions' || table === 'app_config') ? 'key' : 'id'
   const keys = Object.keys(data).filter((k) => k !== pkColumn && k !== 'id')
   if (keys.length === 0) {
     return res.status(400).json({ error: 'No data provided to update' })
@@ -351,7 +354,7 @@ app.delete('/api/crud/:table/:id', async (req, res) => {
         return res.status(400).json({ error: 'Cannot delete protected core system field.' })
       }
     }
-    const pkColumn = table === 'field_definitions' ? 'key' : 'id'
+    const pkColumn = (table === 'field_definitions' || table === 'app_config') ? 'key' : 'id'
     await run(`DELETE FROM ${table} WHERE ${pkColumn} = ?`, [id])
     res.json({ success: true, id })
   } catch (err) {

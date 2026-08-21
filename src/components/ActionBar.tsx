@@ -15,6 +15,7 @@ interface ActionBarProps {
   onToggleEditMode?: () => void
   onSave?: () => void
   isSaving?: boolean
+  onOpenSettings?: () => void
 }
 
 const TARGET_LABEL: Record<'nav' | 'canvas', string> = {
@@ -37,6 +38,7 @@ function ActionBar({
   onToggleEditMode,
   onSave,
   isSaving = false,
+  onOpenSettings,
 }: ActionBarProps) {
   const target = TARGET_LABEL[expandTarget]
 
@@ -111,7 +113,7 @@ function ActionBar({
 
       <Separator />
 
-      <IconButton icon="settings" title="Settings" />
+      <IconButton icon="settings" title="Settings" onClick={onOpenSettings} />
     </div>
   )
 }

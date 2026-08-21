@@ -1,6 +1,6 @@
 import Icon from './Icon'
 import type { NavItem } from '../types'
-import { statusColorClass } from '../fields'
+import { statusHex } from '../fields'
 
 interface NavigationTreeProps {
   items: NavItem[]
@@ -101,7 +101,8 @@ function TreeRow({
             <span aria-hidden="true" className="size-4 shrink-0" />
             <span
               aria-hidden="true"
-              className={`h-2.5 w-2.5 shrink-0 ${statusColorClass(item.data?.status)}`}
+              className="h-2.5 w-2.5 shrink-0"
+              style={{ backgroundColor: statusHex(item.data?.status) }}
             />
           </>
         )}

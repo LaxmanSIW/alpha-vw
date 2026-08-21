@@ -17,6 +17,7 @@ import { INITIAL_EDGES, MODULES, NAV_TREE, VIEWPOINTS } from '../data/mockData'
 import { fetchDashboardData } from '../api/client'
 import { absolutePositionOf, buildFlowNodes, layoutHierarchy } from '../layout'
 import { CONTEXT_MENU_ACTIONS } from '../config/viewConfig'
+import { parseAppConfig, setAppConfig } from '../config/appConfig'
 import {
   VIEWPOINT_CATALOG_TAB_ID,
   type ContextMenuState,
@@ -44,6 +45,7 @@ import EditViewpointModal from './EditViewpointModal'
 import CalendarManagerModal from './CalendarManagerModal'
 import ScheduleManagerModal from './ScheduleManagerModal'
 import ViewScheduleModal from './ViewScheduleModal'
+import SettingsModal from './SettingsModal'
 import Icon from './Icon'
 import { transformViewpointData } from '../viewpointTransformer'
 import { deleteTableRow } from '../api/client'
@@ -54,6 +56,7 @@ function DashboardShell() {
   const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [isCalendarManagerOpen, setIsCalendarManagerOpen] = useState(false)
   const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [scheduleModalNode, setScheduleModalNode] = useState<Node | null>(null)
   const [isCreateViewpointOpen, setIsCreateViewpointOpen] = useState(false)
   const [editingViewpoint, setEditingViewpoint] = useState<Viewpoint | null>(null)
@@ -119,6 +122,9 @@ function DashboardShell() {
       }
       if (data.fieldDefinitions) {
         setFieldDefinitions(data.fieldDefinitions)
+      }
+      if (data.appConfig && data.appConfig.length > 0) {
+        setAppConfig(parseAppConfig(data.appConfig))
       }
     } catch (err) {
       console.warn('Backend API request failed, falling back to local dataset:', err)
@@ -414,6 +420,7 @@ function DashboardShell() {
         onToggleEditMode={() => setIsEditMode((v) => !v)}
         onSave={handleSaveWorkspace}
         isSaving={isSaving}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {isEditMode && (
@@ -639,6 +646,12 @@ function DashboardShell() {
         nodeLabel={scheduleModalNode ? (scheduleModalNode.data?.label as string) || scheduleModalNode.id : ''}
         scheduleName={scheduleModalNode ? (scheduleModalNode.data?.schedule as string) || 'DAILY_PROD_RUN' : 'DAILY_PROD_RUN'}
         onClose={() => setScheduleModalNode(null)}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSaved={() => loadData(true)}
       />
     </div>
   )

@@ -1,5 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import type { FieldDefinition, ModuleTab, NavItem, Viewpoint } from '../types'
+import type { RawConfigRow } from '../config/appConfig'
 
 export interface DashboardData {
   modules: ModuleTab[]
@@ -7,6 +8,7 @@ export interface DashboardData {
   navTree: NavItem[]
   edges: Edge[]
   fieldDefinitions?: FieldDefinition[]
+  appConfig?: RawConfigRow[]
 }
 
 export interface NodeLogEntry {

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import type { Edge } from '@xyflow/react'
 import type { ContextMenuAction, ContextMenuItem, ContextMenuState, PopupSide } from '../types'
 import { POPUP_CONFIG } from '../config/viewConfig'
-import { statusColorClass } from '../fields'
+import { statusHex } from '../fields'
 
 const MENU_WIDTH = POPUP_CONFIG.MENU_WIDTH
 const MENU_HEIGHT = POPUP_CONFIG.MENU_HEIGHT
@@ -195,7 +195,11 @@ export default function ContextPopup({
                   }}
                   className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left hover:bg-surface-hover"
                 >
-                  <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 ${statusColorClass(item.status)}`} />
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 shrink-0"
+                    style={{ backgroundColor: statusHex(item.status) }}
+                  />
                   <span className="min-w-10 text-xs font-medium text-text-muted">L{item.level}</span>
                   <span className="truncate text-sm text-text">{item.name}</span>
                 </button>

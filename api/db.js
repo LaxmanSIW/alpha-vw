@@ -56,14 +56,10 @@ export async function initDb() {
       scope TEXT DEFAULT 'Public',
       filter_status TEXT DEFAULT 'All',
       grouping TEXT DEFAULT 'Folder',
+      sort_by TEXT DEFAULT 'label',
       FOREIGN KEY (module_id) REFERENCES modules(id)
     )
   `)
-
-  try { await run("ALTER TABLE viewpoints ADD COLUMN scope TEXT DEFAULT 'Public'") } catch (err) {}
-  try { await run("ALTER TABLE viewpoints ADD COLUMN filter_status TEXT DEFAULT 'All'") } catch (err) {}
-  try { await run("ALTER TABLE viewpoints ADD COLUMN grouping TEXT DEFAULT 'Folder'") } catch (err) {}
-  try { await run("ALTER TABLE viewpoints ADD COLUMN sort_by TEXT DEFAULT 'label'") } catch (err) {}
 
   await run(`
     CREATE TABLE IF NOT EXISTS field_definitions (
@@ -79,11 +75,6 @@ export async function initDb() {
       is_active INTEGER DEFAULT 1
     )
   `)
-
-  try { await run("ALTER TABLE field_definitions ADD COLUMN section_title TEXT DEFAULT 'Metadata'") } catch (err) {}
-  try { await run("ALTER TABLE field_definitions ADD COLUMN is_protected INTEGER DEFAULT 0") } catch (err) {}
-  try { await run("ALTER TABLE field_definitions ADD COLUMN show_on_card TEXT DEFAULT 'Y'") } catch (err) {}
-  try { await run("ALTER TABLE field_definitions ADD COLUMN show_in_details TEXT DEFAULT 'Y'") } catch (err) {}
 
   await run(`
     CREATE TABLE IF NOT EXISTS node_field_values (
@@ -108,13 +99,6 @@ export async function initDb() {
       data TEXT
     )
   `)
-
-  // Migration helper: add data column if missing in existing database
-  try {
-    await run('ALTER TABLE nav_nodes ADD COLUMN data TEXT')
-  } catch (err) {
-    // Ignore error if column already exists
-  }
 
   await run(`
     CREATE TABLE IF NOT EXISTS edges (
@@ -150,6 +134,58 @@ export async function initDb() {
       config_data TEXT NOT NULL
     )
   `)
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS app_config (
+      key        TEXT PRIMARY KEY,
+      category   TEXT NOT NULL,
+      label      TEXT NOT NULL,
+      value      TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0
+    )
+  `)
+
+  // Seed default app config rows (INSERT OR IGNORE — safe for existing DBs)
+  const defaultConfigRows = [
+    // ── Status definitions ──────────────────────────────────────────────────
+    // value is JSON: { hex, aliases[] }
+    {
+      key: 'status.completed', category: 'status', label: 'Completed', sort_order: 1,
+      value: JSON.stringify({ hex: '#22c55e', aliases: ['ok', 'completed', 'ended ok', 'success'] }),
+    },
+    {
+      key: 'status.executing', category: 'status', label: 'Executing', sort_order: 2,
+      value: JSON.stringify({ hex: '#f97316', aliases: ['executing', 'execution', 'running'] }),
+    },
+    {
+      key: 'status.wait', category: 'status', label: 'Wait for Event', sort_order: 3,
+      value: JSON.stringify({ hex: '#94a3b8', aliases: ['wait for event', 'wait event', 'waiting', 'warning', 'hold'] }),
+    },
+    {
+      key: 'status.failed', category: 'status', label: 'Failed', sort_order: 4,
+      value: JSON.stringify({ hex: '#f43f5e', aliases: ['failed', 'danger', 'error', 'ended notok', 'notok'] }),
+    },
+
+    // ── Canvas layout ────────────────────────────────────────────────────────
+    { key: 'layout.vGap',               category: 'layout',   label: 'Vertical Gap',         value: '50',  sort_order: 1 },
+    { key: 'layout.hGap',               category: 'layout',   label: 'Horizontal Gap',       value: '40',  sort_order: 2 },
+    { key: 'layout.nodeWidth',           category: 'layout',   label: 'Node Width',           value: '190', sort_order: 3 },
+    { key: 'layout.nodeHeight',          category: 'layout',   label: 'Node Height',          value: '130', sort_order: 4 },
+    { key: 'layout.nodeCollapsedHeight', category: 'layout',   label: 'Node Collapsed Height',value: '48',  sort_order: 5 },
+
+    // ── Node relation highlight colors ────────────────────────────────────────
+    { key: 'relation.selectedColor', category: 'relation', label: 'Selected Node Color',     value: '#6366f1', sort_order: 1 },
+    { key: 'relation.predColor',     category: 'relation', label: 'Predecessor Node Color',  value: '#f97316', sort_order: 2 },
+    { key: 'relation.succColor',     category: 'relation', label: 'Successor Node Color',    value: '#22d3ee', sort_order: 3 },
+    { key: 'relation.outlineWidth',  category: 'relation', label: 'Highlight Outline Width', value: '1',       sort_order: 4 },
+  ]
+
+  for (const row of defaultConfigRows) {
+    await run(
+      'INSERT OR IGNORE INTO app_config (key, category, label, value, sort_order) VALUES (?, ?, ?, ?, ?)',
+      [row.key, row.category, row.label, row.value, row.sort_order]
+    )
+  }
 
   // Seed default field definitions
   const initialFields = [

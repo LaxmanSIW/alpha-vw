@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Node } from '@xyflow/react'
 import { DETAILS_TABS, type DetailsTabDef } from '../config/viewConfig'
-import { statusToneClass } from '../fields'
+import { statusTextStyle } from '../fields'
 import { fetchNodeLogs } from '../api/client'
 import type { FieldDefinition } from '../types'
 
@@ -108,6 +108,7 @@ interface RowData {
   value: string
   mono?: boolean
   toneClass?: string
+  toneStyle?: React.CSSProperties
   actionButton?: React.ReactNode
 }
 
@@ -157,7 +158,7 @@ function buildDynamicNodeSections(node: Node, onOpenViewSchedule?: (nodeId: stri
     addRow('State', 'status', {
       label: 'Status',
       value: statusVal.toUpperCase(),
-      toneClass: statusToneClass(statusVal),
+      toneStyle: statusTextStyle(statusVal),
     })
   }
 
@@ -290,8 +291,9 @@ function Section({ title, rows }: { title: string; rows: RowData[] }) {
               className={[
                 'min-w-0 flex-1 truncate text-right flex items-center justify-end gap-1',
                 row.mono ? 'font-mono text-xs' : '',
-                row.toneClass ?? 'text-text',
+                row.toneClass && !row.toneStyle ? row.toneClass : 'text-text',
               ].join(' ')}
+              style={row.toneStyle}
             >
               <span>{row.value}</span>
               {row.actionButton}

@@ -1,4 +1,5 @@
 import type { Edge } from '@xyflow/react'
+import { getAppConfig } from './config/appConfig'
 
 export type RelationKind = 'selected' | 'upstream' | 'downstream' | 'none'
 
@@ -137,7 +138,24 @@ export function edgeRelation(
   return 'none'
 }
 
-/** Token names, so the palette stays in tokens.css rather than being hardcoded. */
+/**
+ * Returns the highlight color for a relation kind, driven by app config.
+ * Falls back to CSS variables if config isn't loaded yet.
+ */
+export function getRelationColor(kind: Exclude<RelationKind, 'none'>): string {
+  const rel = getAppConfig().relation
+  switch (kind) {
+    case 'selected': return rel.selectedColor
+    case 'upstream': return rel.predColor
+    case 'downstream': return rel.succColor
+  }
+}
+
+export function getRelationOutlineWidth(): number {
+  return getAppConfig().relation.outlineWidth
+}
+
+/** @deprecated Use getRelationColor() instead. */
 export const RELATION_COLOR: Record<Exclude<RelationKind, 'none'>, string> = {
   selected: 'var(--primary)',
   upstream: 'var(--chart-3)',

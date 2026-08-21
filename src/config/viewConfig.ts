@@ -12,6 +12,7 @@
  */
 
 import type { ContextMenuAction } from '../types'
+import { getAppConfig } from './appConfig'
 
 /** Keys resolved from the node rather than node.data. */
 export const RESERVED_KEYS = {
@@ -156,15 +157,10 @@ export function getDynamicNodeFieldDefs(): FieldDef[] {
 }
 
 /**
- * Canvas layout. The vertical gap is what keeps spacing constant when a node
- * expands: positions are recomputed from measured heights so the GAP stays
- * fixed, rather than the node growing into whatever slack happens to be there.
+ * Canvas layout. Values are read from the live app config (loaded from DB)
+ * so they can be changed in Settings without touching this file.
+ * getLayout() is called at render time, not module load time.
  */
-export const LAYOUT = {
-  vGap: 50,
-  hGap: 40,
-
-  nodeWidth: 190,
-  nodeHeight: 130,
-  nodeCollapsedHeight: 48,
-} as const
+export function getLayout() {
+  return getAppConfig().layout
+}
