@@ -9,7 +9,14 @@ import {
   updateTableRow,
 } from '../api/client'
 
-export type TableName = 'modules' | 'viewpoints' | 'nav_nodes' | 'edges' | 'node_logs'
+export type TableName =
+  | 'modules'
+  | 'viewpoints'
+  | 'nav_nodes'
+  | 'edges'
+  | 'node_logs'
+  | 'field_definitions'
+  | 'node_field_values'
 export type AdminTab = TableName | 'bulk_csv'
 
 interface ColumnDef {
@@ -29,8 +36,8 @@ interface TableSchema {
   columns: ColumnDef[]
 }
 
-function buildNavNodeColumns(): ColumnDef[] {
-  const dynamicDefs = getDynamicNodeFieldDefs()
+function buildNavNodeColumns(customFieldDefs: ColumnDef[] = []): ColumnDef[] {
+  const staticDefs = getDynamicNodeFieldDefs()
   const fixedPrefix: ColumnDef[] = [
     { key: 'id', label: 'Node ID', type: 'text', required: true },
     { key: 'label', label: 'Node Label', type: 'text', required: true },
@@ -52,7 +59,8 @@ function buildNavNodeColumns(): ColumnDef[] {
     },
   ]
 
-  const dynamicColumns: ColumnDef[] = dynamicDefs.map((f) => {
+  const mergedMap = new Map<string, ColumnDef>()
+  staticDefs.forEach((f) => {
     let colType: 'text' | 'number' | 'select' = 'text'
     let options: Array<{ value: string; label: string }> | undefined
 
@@ -61,9 +69,10 @@ function buildNavNodeColumns(): ColumnDef[] {
     } else if (f.key === 'status') {
       colType = 'select'
       options = [
-        { value: 'ok', label: 'Healthy (ok)' },
-        { value: 'warning', label: 'Degraded (warning)' },
-        { value: 'danger', label: 'Unreachable (danger)' },
+        { value: 'Completed', label: 'Completed' },
+        { value: 'Executing', label: 'Executing' },
+        { value: 'Wait for Event', label: 'Wait for Event' },
+        { value: 'Failed', label: 'Failed' },
       ]
     } else if (f.key === 'node_kind' || f.key === 'kind') {
       colType = 'select'
@@ -76,15 +85,23 @@ function buildNavNodeColumns(): ColumnDef[] {
       ]
     }
 
-    return {
+    mergedMap.set(f.key, {
       key: f.key,
       label: f.label,
       type: colType,
       options,
+    })
+  })
+
+  // Merge dynamic DB field definitions
+  customFieldDefs.forEach((f) => {
+    if (!mergedMap.has(f.key)) {
+      mergedMap.set(f.key, f)
     }
   })
 
-  // Ensure sort_order is present if not in dynamicDefs
+  const dynamicColumns = Array.from(mergedMap.values())
+
   if (!dynamicColumns.some((c) => c.key === 'sort_order')) {
     dynamicColumns.push({ key: 'sort_order', label: 'Sort Order', type: 'number' })
   }
@@ -92,7 +109,7 @@ function buildNavNodeColumns(): ColumnDef[] {
   return [...fixedPrefix, ...dynamicColumns]
 }
 
-function getSchemas(): TableSchema[] {
+function getSchemas(customFieldDefs: ColumnDef[] = []): TableSchema[] {
   return [
     {
       name: 'modules',
@@ -119,14 +136,96 @@ function getSchemas(): TableSchema[] {
         { key: 'label', label: 'Label', type: 'text', required: true },
         { key: 'description', label: 'Description', type: 'text' },
         { key: 'folder', label: 'Folder Path', type: 'text' },
+        {
+          key: 'scope',
+          label: 'Scope',
+          type: 'select',
+          options: [
+            { value: 'Public', label: 'Public' },
+            { value: 'Private', label: 'Private' },
+          ],
+        },
+        {
+          key: 'filter_status',
+          label: 'Status Filter',
+          type: 'select',
+          options: [
+            { value: 'All', label: 'All' },
+            { value: 'Completed', label: 'Completed' },
+            { value: 'Executing', label: 'Executing' },
+            { value: 'Wait for Event', label: 'Wait for Event' },
+            { value: 'Failed', label: 'Failed' },
+          ],
+        },
+        { key: 'grouping', label: 'Grouping Rule', type: 'text' },
         { key: 'job_count', label: 'Job Count', type: 'number' },
+      ],
+    },
+    {
+      name: 'field_definitions',
+      label: 'Field Definitions',
+      primaryKey: 'key',
+      columns: [
+        { key: 'key', label: 'Field Key', type: 'text', required: true },
+        { key: 'label', label: 'Display Label', type: 'text', required: true },
+        { key: 'section_title', label: 'Details Section Header', type: 'text', required: true },
+        {
+          key: 'role',
+          label: 'Card Role',
+          type: 'select',
+          options: [
+            { value: 'title', label: 'Title' },
+            { value: 'subtitle', label: 'Subtitle' },
+            { value: 'detail', label: 'Detail Row' },
+            { value: 'none', label: 'None (Details Pane Only)' },
+          ],
+          required: true,
+        },
+        {
+          key: 'format',
+          label: 'Display Format',
+          type: 'select',
+          options: [
+            { value: 'text', label: 'Text' },
+            { value: 'mono', label: 'Monospace Code' },
+            { value: 'status', label: 'Status Badge' },
+          ],
+        },
+        { key: 'sort_order', label: 'Sort Order', type: 'number' },
+        {
+          key: 'show_on_card',
+          label: 'Show on Canvas Card?',
+          type: 'select',
+          options: [
+            { value: 'Y', label: 'Y (Yes - Visible on Card)' },
+            { value: 'N', label: 'N (No - Hidden from Card)' },
+          ],
+        },
+        {
+          key: 'show_in_details',
+          label: 'Show in Details Pane?',
+          type: 'select',
+          options: [
+            { value: 'Y', label: 'Y (Yes - Visible in Details)' },
+            { value: 'N', label: 'N (No - Hidden from Details)' },
+          ],
+        },
+        {
+          key: 'is_protected',
+          label: 'Protected System Core',
+          type: 'select',
+          options: [
+            { value: '0', label: 'Custom Field' },
+            { value: '1', label: 'Protected Core System Field' },
+          ],
+        },
       ],
     },
     {
       name: 'nav_nodes',
       label: 'Navigation Nodes',
       primaryKey: 'id',
-      columns: buildNavNodeColumns(),
+      columns: buildNavNodeColumns(customFieldDefs),
     },
     {
       name: 'edges',
@@ -181,36 +280,44 @@ function getSchemas(): TableSchema[] {
   ]
 }
 
-function getSampleCSV(targetTable: 'nav_nodes' | 'edges'): string {
+function getSampleCSV(targetTable: 'nav_nodes' | 'edges', customFieldDefs: ColumnDef[] = []): string {
   if (targetTable === 'edges') {
     return `id,source,target
 e3-9,n-3,n-9
 e9-11,n-9,n-11`
   }
 
-  const dynamicDefs = getDynamicNodeFieldDefs()
-  const headers = ['id', 'label', 'kind', 'parent_id', ...dynamicDefs.map((f) => f.key)]
-  const sampleRow1 = [
-    'n-9',
-    'Analytics Engine',
-    'item',
-    'n-domain-b',
-    'Process',
-    'ok',
-    'ctm-app-03',
-    '512',
-    '1',
-  ]
-  const sampleRow2 = ['n-10', 'Domain D', 'folder', 'n-alpha', '', '', '', '', '2']
-  return [
-    headers.join(','),
-    sampleRow1.slice(0, headers.length).join(','),
-    sampleRow2.slice(0, headers.length).join(','),
-  ].join('\n')
+  const columns = buildNavNodeColumns(customFieldDefs)
+  const headers = columns.map((c) => c.key)
+
+  const sampleRow1Map: Record<string, string> = {
+    id: 'n-9',
+    label: 'Analytics Engine',
+    kind: 'item',
+    parent_id: 'n-domain-b',
+    node_kind: 'Process',
+    status: 'ok',
+    host: 'ctm-app-03',
+    runs: '512',
+    sort_order: '1',
+  }
+
+  const sampleRow2Map: Record<string, string> = {
+    id: 'n-10',
+    label: 'Domain D',
+    kind: 'folder',
+    parent_id: 'n-alpha',
+    sort_order: '2',
+  }
+
+  const row1 = headers.map((h) => sampleRow1Map[h] ?? 'val')
+  const row2 = headers.map((h) => sampleRow2Map[h] ?? '')
+
+  return [headers.join(','), row1.join(','), row2.join(',')].join('\n')
 }
 
-function downloadSampleCSV(targetTable: 'nav_nodes' | 'edges') {
-  const content = getSampleCSV(targetTable)
+function downloadSampleCSV(targetTable: 'nav_nodes' | 'edges', customFieldDefs: ColumnDef[] = []) {
+  const content = getSampleCSV(targetTable, customFieldDefs)
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -260,6 +367,7 @@ interface AdminModalProps {
 function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('modules')
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [dbFieldDefs, setDbFieldDefs] = useState<ColumnDef[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchFilter, setSearchFilter] = useState('')
@@ -280,6 +388,8 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
     nav_nodes: [],
     edges: [],
     node_logs: [],
+    field_definitions: [],
+    node_field_values: [],
   })
 
   // Form State
@@ -288,7 +398,7 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  const schemas = useMemo(() => getSchemas(), [])
+  const schemas = useMemo(() => getSchemas(dbFieldDefs), [dbFieldDefs])
   const isBulkTab = activeTab === 'bulk_csv'
   const activeTableName: TableName = isBulkTab ? 'nav_nodes' : activeTab
   const schema = schemas.find((s) => s.name === activeTableName) ?? schemas[0]
@@ -296,10 +406,18 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
   // Load relational lookup options
   const loadRelationalOptions = useCallback(async () => {
     try {
-      const [modulesData, nodesData] = await Promise.all([
+      const [modulesData, nodesData, fieldsData] = await Promise.all([
         fetchTableRows<{ id: string; label: string }>('modules'),
         fetchTableRows<{ id: string; label: string; kind: string }>('nav_nodes'),
+        fetchTableRows<{ key: string; label: string; role: string; format: string }>('field_definitions'),
       ])
+
+      const dynamicCols: ColumnDef[] = fieldsData.map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: f.key === 'runs' || f.key === 'sort_order' ? 'number' : 'text',
+      }))
+      setDbFieldDefs(dynamicCols)
 
       setRelationalOptions({
         modules: modulesData.map((m) => ({ value: m.id, label: `${m.label} (${m.id})` })),
@@ -310,6 +428,8 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
         viewpoints: [],
         edges: [],
         node_logs: [],
+        field_definitions: [],
+        node_field_values: [],
       })
     } catch (err) {
       console.warn('Failed to load lookup options:', err)
@@ -352,6 +472,10 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
     schema.columns.forEach((col) => {
       if (col.key === 'timestamp') {
         initial[col.key] = new Date().toISOString()
+      } else if (col.key === 'show_on_card' || col.key === 'show_in_details') {
+        initial[col.key] = 'Y'
+      } else if (col.key === 'section_title') {
+        initial[col.key] = 'Operational Metadata'
       } else if (col.type === 'number') {
         initial[col.key] = 0
       } else {
@@ -364,7 +488,15 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
 
   const handleOpenEditForm = (row: Record<string, unknown>) => {
     setEditingRow(row)
-    setFormData({ ...row })
+    const normalized: Record<string, unknown> = { ...row }
+    if (row.sectionTitle !== undefined && row.section_title === undefined) normalized.section_title = row.sectionTitle
+    if (row.sortOrder !== undefined && row.sort_order === undefined) normalized.sort_order = row.sortOrder
+    if (row.isProtected !== undefined && row.is_protected === undefined) normalized.is_protected = row.isProtected
+    if (row.showOnCard !== undefined && row.show_on_card === undefined) normalized.show_on_card = row.showOnCard
+    if (row.showInDetails !== undefined && row.show_in_details === undefined) normalized.show_in_details = row.showInDetails
+    if (row.filterStatus !== undefined && row.filter_status === undefined) normalized.filter_status = row.filterStatus
+    if (row.sortBy !== undefined && row.sort_by === undefined) normalized.sort_by = row.sortBy
+    setFormData(normalized)
     setIsFormOpen(true)
   }
 
@@ -524,7 +656,7 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => downloadSampleCSV('nav_nodes')}
+                    onClick={() => downloadSampleCSV('nav_nodes', dbFieldDefs)}
                     className="flex items-center gap-1.5 border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                   >
                     <span>📥 Sample Nav Nodes CSV</span>
@@ -668,7 +800,7 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
               <button
                 type="button"
                 onClick={handleOpenAddForm}
-                className="flex items-center gap-1.5 bg-primary px-3 py-1.5 text-xs font-medium text-primary-fg hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 bg-primary px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover shadow-xs border border-primary transition-colors"
               >
                 <Icon name="plus" size={14} />
                 <span>Add New Record</span>
@@ -712,11 +844,24 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                     <tbody className="divide-y divide-border">
                       {filteredRows.map((row, idx) => {
                         const rowKey = String(row[schema.primaryKey] ?? idx)
+                        const isProtectedField =
+                          activeTableName === 'field_definitions' &&
+                          (Number(row.is_protected) === 1 || Boolean(row.is_protected))
+
                         return (
                           <tr key={rowKey} className="hover:bg-surface-hover transition-colors">
                             {schema.columns.map((col) => (
                               <td key={col.key} className="px-3 py-2 border-r border-border last:border-r-0 max-w-xs truncate">
-                                {String(row[col.key] ?? '--')}
+                                {col.key === 'key' && isProtectedField ? (
+                                  <span className="inline-flex items-center gap-1.5 font-medium text-text">
+                                    <span>{String(row[col.key] ?? '--')}</span>
+                                    <span className="bg-primary/15 text-primary text-[10px] font-semibold px-1 py-0.2 uppercase rounded">
+                                      CORE
+                                    </span>
+                                  </span>
+                                ) : (
+                                  String(row[col.key] ?? '--')
+                                )}
                               </td>
                             ))}
                             <td className="px-3 py-2 text-right">
@@ -729,14 +874,20 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                                 >
                                   <Icon name="edit" size={14} />
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(row)}
-                                  className="p-1 text-text-secondary hover:text-danger-fg hover:bg-surface-sunken"
-                                  title="Delete Row"
-                                >
-                                  <Icon name="close" size={14} />
-                                </button>
+                                {isProtectedField ? (
+                                  <span className="p-1 text-text-muted cursor-not-allowed opacity-40" title="Protected Core System Field (Cannot Delete)">
+                                    <Icon name="close" size={14} />
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(row)}
+                                    className="p-1 text-text-secondary hover:text-danger-fg hover:bg-surface-sunken"
+                                    title="Delete Row"
+                                  >
+                                    <Icon name="close" size={14} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -762,7 +913,7 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
 
       {/* Form Modal for Create / Edit */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg border border-border bg-surface p-5 shadow-2xl text-text">
             <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
               <h3 className="text-base font-semibold">
@@ -842,14 +993,14 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="border border-border bg-surface-sunken px-3 py-1.5 text-xs text-text-secondary hover:text-text"
+                  className="border border-primary/40 bg-white px-3.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/5 hover:border-primary transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-primary px-4 py-1.5 text-xs font-medium text-primary-fg hover:opacity-90 disabled:opacity-50"
+                  className="bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover shadow-xs border border-primary transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Saving...' : editingRow ? 'Update Record' : 'Create Record'}
                 </button>

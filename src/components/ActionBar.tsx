@@ -1,11 +1,7 @@
-import { useState } from 'react'
 import IconButton from './ui/IconButton'
 
 interface ActionBarProps {
-  /** Which pane the structure toggle acts on, so the tooltip can say so
-   * instead of leaving the user to guess what the button just did. */
   expandTarget: 'nav' | 'canvas'
-  /** Current state of that target, which decides the toggle's icon. */
   structureExpanded: boolean
   onToggleStructure: () => void
   listView: boolean
@@ -15,6 +11,10 @@ interface ActionBarProps {
   onSearchToggle: () => void
   onRefresh?: () => void
   isRefreshing?: boolean
+  isEditMode?: boolean
+  onToggleEditMode?: () => void
+  onSave?: () => void
+  isSaving?: boolean
 }
 
 const TARGET_LABEL: Record<'nav' | 'canvas', string> = {
@@ -22,15 +22,6 @@ const TARGET_LABEL: Record<'nav' | 'canvas', string> = {
   canvas: 'canvas nodes',
 }
 
-/**
- * Three action groups: left (document actions), middle (structure and view),
- * right (search and settings).
- *
- * White background so it forms one continuous surface with the active viewpoint
- * tab above it. Groups are separated by a 1px rule rather than whitespace alone
- * -- with no shadows or containers available, the rule is what tells you the
- * toolbar has regions instead of being one long row of glyphs.
- */
 function ActionBar({
   expandTarget,
   structureExpanded,
@@ -42,8 +33,11 @@ function ActionBar({
   onSearchToggle,
   onRefresh,
   isRefreshing = false,
+  isEditMode = false,
+  onToggleEditMode,
+  onSave,
+  isSaving = false,
 }: ActionBarProps) {
-  const [editing, setEditing] = useState(false)
   const target = TARGET_LABEL[expandTarget]
 
   return (
@@ -51,11 +45,16 @@ function ActionBar({
       {/* left: document actions */}
       <IconButton
         icon="edit"
-        title={editing ? 'Exit edit mode' : 'Edit'}
-        active={editing}
-        onClick={() => setEditing((v) => !v)}
+        title={isEditMode ? 'Exit Canvas Edit Mode' : 'Enter Canvas Edit Mode'}
+        active={isEditMode}
+        onClick={onToggleEditMode}
       />
-      <IconButton icon="save" title="Save" />
+      <IconButton
+        icon="save"
+        title={isSaving ? 'Saving Changes to Database...' : 'Save Workspace Changes to Database'}
+        onClick={onSave}
+        disabled={isSaving}
+      />
       <IconButton
         icon="refresh"
         title={isRefreshing ? 'Refreshing data from DB...' : 'Refresh data from DB'}

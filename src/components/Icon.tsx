@@ -31,6 +31,8 @@ export type IconName =
   | 'undo'
   | 'redo'
   | 'zoom-fit'
+  | 'check'
+  | 'x'
 
 const PATHS: Record<IconName, React.ReactNode> = {
   'chevron-left': <polyline points="10,3 5,8 10,13" />,
@@ -101,6 +103,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <line x1="13" y1="3" x2="3" y2="13" />
     </>
   ),
+  x: (
+    <>
+      <line x1="3" y1="3" x2="13" y2="13" />
+      <line x1="13" y1="3" x2="3" y2="13" />
+    </>
+  ),
+  check: <polyline points="2,8 6,12 14,4" />,
   plus: (
     <>
       <line x1="8" y1="3" x2="8" y2="13" />

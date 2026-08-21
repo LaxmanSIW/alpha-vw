@@ -21,6 +21,7 @@ import {
   VIEWPOINT_CATALOG_TAB_ID,
   type ContextMenuState,
   type DensityName,
+  type FieldDefinition,
   type ModuleTab,
   type NavItem,
   type PaneId,
@@ -38,16 +39,29 @@ function collectFolderIds(items: NavItem[]): string[] {
  *  render and would invalidate every memo downstream of it. */
 const NO_TABS: string[] = []
 
+import CreateViewpointModal from './CreateViewpointModal'
+import EditViewpointModal from './EditViewpointModal'
+import Icon from './Icon'
+import { transformViewpointData } from '../viewpointTransformer'
+import { deleteTableRow } from '../api/client'
+
 function DashboardShell() {
   const [theme, setTheme] = useState<ThemeName>('light')
   const [density, setDensity] = useState<DensityName>('compact')
   const [isAdminOpen, setIsAdminOpen] = useState(false)
+  const [isCreateViewpointOpen, setIsCreateViewpointOpen] = useState(false)
+  const [editingViewpoint, setEditingViewpoint] = useState<Viewpoint | null>(null)
+
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveNotification, setSaveNotification] = useState<string | null>(null)
 
   // State managed from DB API calls
   const [modules, setModules] = useState<ModuleTab[]>(MODULES)
   const [viewpoints, setViewpoints] = useState<Viewpoint[]>(VIEWPOINTS)
   const [navTree, setNavTree] = useState<NavItem[]>(NAV_TREE)
   const [edges, setEdges] = useState<Edge[]>(INITIAL_EDGES)
+  const [fieldDefinitions, setFieldDefinitions] = useState<FieldDefinition[]>([])
 
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -97,6 +111,9 @@ function DashboardShell() {
       if (data.edges) {
         setEdges(data.edges)
       }
+      if (data.fieldDefinitions) {
+        setFieldDefinitions(data.fieldDefinitions)
+      }
     } catch (err) {
       console.warn('Backend API request failed, falling back to local dataset:', err)
     } finally {
@@ -110,17 +127,19 @@ function DashboardShell() {
     loadData(false)
   }, [loadData])
 
-  const layout = useMemo(
-    () => layoutHierarchy(navTree, edges, jobsExpanded),
-    [navTree, edges, jobsExpanded],
-  )
-
-  const nodes = useMemo(
-    () => buildFlowNodes(navTree, layout, jobsExpanded),
-    [navTree, layout, jobsExpanded],
-  )
-
-  const jobNodes = useMemo(() => nodes.filter((node) => node.type === 'flat'), [nodes])
+  const handleSaveWorkspace = useCallback(async () => {
+    setIsSaving(true)
+    setSaveNotification(null)
+    try {
+      await loadData(true)
+      setSaveNotification('Saved active workspace changes to SQLite database!')
+      setTimeout(() => setSaveNotification(null), 3500)
+    } catch (err) {
+      setSaveNotification(`Failed to save: ${err}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [loadData])
 
   const catalog = useMemo(
     () => viewpoints.filter((viewpoint) => viewpoint.moduleId === activeModuleId),
@@ -149,6 +168,35 @@ function DashboardShell() {
       ? requestedTabId
       : VIEWPOINT_CATALOG_TAB_ID
   const showingCatalog = activeTabId === VIEWPOINT_CATALOG_TAB_ID
+
+  const activeViewpoint = useMemo(
+    () => (showingCatalog ? null : viewpoints.find((vp) => vp.id === activeTabId)),
+    [showingCatalog, viewpoints, activeTabId],
+  )
+
+  const viewpointData = useMemo(
+    () => transformViewpointData(navTree, edges, activeViewpoint),
+    [navTree, edges, activeViewpoint],
+  )
+
+  const activeNavTree = viewpointData.navTree
+  const activeEdges = viewpointData.edges
+
+  useEffect(() => {
+    setExpandedNavIds(new Set(collectFolderIds(activeNavTree)))
+  }, [activeNavTree])
+
+  const layout = useMemo(
+    () => layoutHierarchy(activeNavTree, activeEdges, jobsExpanded),
+    [activeNavTree, activeEdges, jobsExpanded],
+  )
+
+  const nodes = useMemo(
+    () => buildFlowNodes(activeNavTree, layout, jobsExpanded, fieldDefinitions),
+    [activeNavTree, layout, jobsExpanded, fieldDefinitions],
+  )
+
+  const jobNodes = useMemo(() => nodes.filter((node) => node.type === 'flat'), [nodes])
 
   const onSelectTab = useCallback(
     (tabId: string) => setActiveTabByModule((current) => ({ ...current, [activeModuleId]: tabId })),
@@ -347,7 +395,32 @@ function DashboardShell() {
         onSearchToggle={() => setSearchOpen((v) => !v)}
         onRefresh={() => loadData(true)}
         isRefreshing={isRefreshing}
+        isEditMode={isEditMode}
+        onToggleEditMode={() => setIsEditMode((v) => !v)}
+        onSave={handleSaveWorkspace}
+        isSaving={isSaving}
       />
+
+      {isEditMode && (
+        <div className="flex h-7 shrink-0 items-center justify-between bg-warning-bg/25 border-b border-warning-fg/30 px-4 text-xs text-warning-fg font-medium">
+          <div className="flex items-center gap-1.5">
+            <Icon name="edit" size={13} />
+            <span>EDIT MODE ACTIVE -- Select nodes or modify viewpoint parameters and save changes to SQLite database.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsEditMode(false)}
+            className="underline underline-offset-2 hover:opacity-80"
+          >
+            Exit Edit Mode
+          </button>
+        </div>
+      )}
+      {saveNotification && (
+        <div className="flex h-7 shrink-0 items-center justify-between bg-success-bg/20 border-b border-success-fg/30 px-4 text-xs text-success-fg font-medium">
+          <span>{saveNotification}</span>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <SidePanel
@@ -359,7 +432,7 @@ function DashboardShell() {
           onFocusCapture={() => setFocusedPane('nav')}
         >
           <NavigationTree
-            items={navTree}
+            items={activeNavTree}
             expandedIds={expandedNavIds}
             onToggle={onNavToggle}
             selectedId={selectedNodeId}
@@ -368,39 +441,98 @@ function DashboardShell() {
         </SidePanel>
 
         <main
-          className="relative min-w-0 flex-1 bg-canvas"
+          className="relative min-w-0 flex-1 bg-canvas flex flex-col"
           onPointerDownCapture={() => setFocusedPane('canvas')}
         >
-          {showingCatalog ? (
-            <ViewpointCatalog viewpoints={catalog} openIds={openIds} onOpen={onOpenViewpoint} />
-          ) : listView ? (
-            <NodeListView
-              nodes={jobNodes}
-              selectedId={selectedNodeId}
-              onSelect={setSelectedNodeId}
-            />
-          ) : (
-            <FlowCanvas
-              nodes={nodes}
-              edges={edges}
-              selectedNodeId={selectedNodeId}
-              onNodeClick={onNodeClick}
-              onNodeContextMenu={onNodeContextMenu}
-              onPaneClick={() => {
-                setSelectedNodeId(null)
-                setContextMenu(null)
-              }}
-              onPaneContextMenu={onPaneContextMenu}
-            >
-              {searchOpen && (
-                <CanvasSearch
-                  nodes={jobNodes}
-                  onPick={focusNode}
-                  onClose={() => setSearchOpen(false)}
-                />
-              )}
-            </FlowCanvas>
+          {activeViewpoint && !showingCatalog && (
+            <div className="flex h-8 shrink-0 items-center justify-between border-b border-border bg-surface-sunken px-4 text-xs text-text shadow-inner">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-primary">{activeViewpoint.label}</span>
+                <span
+                  className={`px-1.5 py-0.2 font-medium text-[10px] uppercase ${
+                    activeViewpoint.scope === 'Private'
+                      ? 'bg-warning-bg text-warning-fg'
+                      : 'bg-accent/15 text-accent'
+                  }`}
+                >
+                  {activeViewpoint.scope ?? 'Public'}
+                </span>
+                <span className="text-text-muted">|</span>
+                <span>
+                  Status Filter: <strong className="text-text">{activeViewpoint.filterStatus ?? 'All'}</strong>
+                </span>
+                <span className="text-text-muted">|</span>
+                <span>
+                  Grouped by: <strong className="text-text">{activeViewpoint.grouping ?? 'Folder'}</strong>
+                </span>
+                <span className="text-text-muted">|</span>
+                <span>
+                  Sorted by: <strong className="text-text">{activeViewpoint.sortBy ?? 'label'}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditingViewpoint(activeViewpoint)}
+                  className="ml-2 inline-flex items-center gap-1 border border-border bg-surface px-2 py-0.5 text-[11px] font-medium text-text hover:bg-surface-hover hover:text-primary transition-colors"
+                  title="Modify Viewpoint Properties"
+                >
+                  <Icon name="edit" size={12} />
+                  <span>Edit Viewpoint</span>
+                </button>
+              </div>
+              <div className="text-text-muted font-medium">
+                Active Viewpoint Jobs: <strong className="text-primary">{viewpointData.jobCount}</strong>
+              </div>
+            </div>
           )}
+
+          <div className="relative min-h-0 flex-1">
+            {showingCatalog ? (
+              <ViewpointCatalog
+                viewpoints={catalog}
+                openIds={openIds}
+                onOpen={onOpenViewpoint}
+                onCreateViewpoint={() => setIsCreateViewpointOpen(true)}
+                onEditViewpoint={(vp) => setEditingViewpoint(vp)}
+                onDeleteViewpoint={async (vp) => {
+                  if (window.confirm(`Are you sure you want to delete viewpoint "${vp.label}"?`)) {
+                    try {
+                      await deleteTableRow('viewpoints', vp.id)
+                      loadData(true)
+                    } catch (err) {
+                      alert(`Failed to delete viewpoint: ${err}`)
+                    }
+                  }
+                }}
+              />
+            ) : listView ? (
+              <NodeListView
+                nodes={jobNodes}
+                selectedId={selectedNodeId}
+                onSelect={setSelectedNodeId}
+              />
+            ) : (
+              <FlowCanvas
+                nodes={nodes}
+                edges={activeEdges}
+                selectedNodeId={selectedNodeId}
+                onNodeClick={onNodeClick}
+                onNodeContextMenu={onNodeContextMenu}
+                onPaneClick={() => {
+                  setSelectedNodeId(null)
+                  setContextMenu(null)
+                }}
+                onPaneContextMenu={onPaneContextMenu}
+              >
+                {searchOpen && (
+                  <CanvasSearch
+                    nodes={jobNodes}
+                    onPick={focusNode}
+                    onClose={() => setSearchOpen(false)}
+                  />
+                )}
+              </FlowCanvas>
+            )}
+          </div>
         </main>
 
         <SidePanel
@@ -451,6 +583,21 @@ function DashboardShell() {
           }}
         />
       )}
+
+      <CreateViewpointModal
+        isOpen={isCreateViewpointOpen}
+        modules={modules}
+        activeModuleId={activeModuleId}
+        onClose={() => setIsCreateViewpointOpen(false)}
+        onCreated={() => loadData(true)}
+      />
+
+      <EditViewpointModal
+        isOpen={Boolean(editingViewpoint)}
+        viewpoint={editingViewpoint}
+        onClose={() => setEditingViewpoint(null)}
+        onSuccess={() => loadData(true)}
+      />
 
       <AdminModal
         isOpen={isAdminOpen}

@@ -3,6 +3,7 @@ import type { Node } from '@xyflow/react'
 import { DETAILS_TABS, type DetailsSectionDef, type DetailsTabDef } from '../config/viewConfig'
 import { rawFieldValue, resolveField, statusToneClass } from '../fields'
 import { fetchNodeLogs } from '../api/client'
+import type { FieldDefinition } from '../types'
 
 interface DetailsPanelProps {
   selectedNode: Node | null
@@ -73,23 +74,25 @@ function TabBody({
           No selection. Click a node on the canvas to inspect it.
         </p>
         <Section
-          title="Viewpoint"
+          title="Viewpoint Summary"
           rows={[
-            { label: 'Nodes', value: String(nodeCount) },
-            { label: 'Edges', value: String(edgeCount) },
+            { label: 'Total Nodes', value: String(nodeCount) },
+            { label: 'Total Edges', value: String(edgeCount) },
           ]}
         />
       </div>
     )
   }
 
+  const sections = buildDynamicNodeSections(selectedNode, tab.sections)
+
   return (
-    <div className="p-2.5">
-      {(tab.sections ?? []).map((section) => (
+    <div className="p-2.5 space-y-3">
+      {sections.map((section) => (
         <Section
           key={section.title}
           title={section.title}
-          rows={sectionRows(section, selectedNode)}
+          rows={section.rows}
         />
       ))}
     </div>
@@ -103,13 +106,115 @@ interface RowData {
   toneClass?: string
 }
 
-function sectionRows(section: DetailsSectionDef, node: Node): RowData[] {
-  return section.fields.map((field) => ({
-    label: field.label,
-    value: resolveField(node, field),
-    mono: field.format === 'mono',
-    toneClass: field.format === 'status' ? statusToneClass(rawFieldValue(node, field)) : undefined,
-  }))
+interface DynamicSection {
+  title: string
+  rows: RowData[]
+}
+
+function isShowable(val: unknown): boolean {
+  if (val === undefined || val === null || val === '') return true
+  const str = String(val).trim().toUpperCase()
+  return str !== 'N' && str !== 'NO' && str !== 'FALSE' && str !== '0'
+}
+
+function buildDynamicNodeSections(node: Node, defaultSections?: DetailsSectionDef[]): DynamicSection[] {
+  const data = (node.data ?? {}) as Record<string, unknown>
+  const fieldDefs = (data.fieldDefinitions ?? []) as FieldDefinition[]
+  const fieldDefMap = new Map<string, FieldDefinition>()
+  fieldDefs.forEach((fd) => fieldDefMap.set(fd.key, fd))
+
+  const nodeKind = (data.kind as string) ?? 'Item'
+  const parentFolder = (data.folder as string) ?? '--'
+
+  const sectionMap = new Map<string, RowData[]>()
+
+  const addRow = (defaultSectionTitle: string, fieldKey: string, row: RowData) => {
+    const def = fieldDefMap.get(fieldKey)
+    if (def) {
+      const showInDetails = def.showInDetails ?? (def as unknown as Record<string, unknown>).show_in_details
+      if (!isShowable(showInDetails)) return
+    }
+    const targetSection = def?.sectionTitle || defaultSectionTitle
+    if (!sectionMap.has(targetSection)) sectionMap.set(targetSection, [])
+    sectionMap.get(targetSection)!.push(row)
+  }
+
+  // 1. Core Identity Section
+  addRow('Identity', 'label', { label: 'Name', value: String(data.label ?? node.id) })
+  addRow('Identity', 'id', { label: 'Node ID', value: node.id, mono: true })
+  addRow('Identity', 'kind', { label: 'Kind', value: node.type === 'container' ? 'Container Folder' : 'Job / Item' })
+  addRow('Identity', 'node_kind', { label: 'Type', value: nodeKind })
+  addRow('Identity', 'folder', { label: 'Folder Scope', value: parentFolder })
+
+  // 2. Core State Section
+  if (data.status) {
+    const statusVal = String(data.status)
+    addRow('State', 'status', {
+      label: 'Status',
+      value: statusVal.toUpperCase(),
+      toneClass: statusToneClass(statusVal),
+    })
+  }
+
+  // 3. Execution Section
+  if (data.host) addRow('Execution', 'host', { label: 'Host', value: String(data.host), mono: true })
+  if (data.runs !== undefined) addRow('Execution', 'runs', { label: 'Runs', value: String(data.runs) })
+
+  // 4. Custom Fields Section - Grouped by custom sectionTitle
+  const knownKeys = new Set([
+    'label',
+    'kind',
+    'node_kind',
+    'folder',
+    'status',
+    'host',
+    'runs',
+    'expanded',
+    'relation',
+    'fieldDefinitions',
+  ])
+
+  // Process all registered custom field definitions
+  fieldDefs.forEach((def) => {
+    if (knownKeys.has(def.key)) return
+    const val = data[def.key]
+    const valueStr = val !== undefined && val !== null && val !== '' ? String(val) : '--'
+    const sectionTitle = def.sectionTitle || 'Operational Metadata'
+
+    addRow(sectionTitle, def.key, {
+      label: def.label || def.key,
+      value: valueStr,
+      mono: def.format === 'mono',
+    })
+  })
+
+  // Also include any extra custom properties attached to node data not in fieldDefs
+  for (const [key, val] of Object.entries(data)) {
+    if (knownKeys.has(key) || fieldDefMap.has(key)) continue
+    if (val === null || val === undefined || val === '') continue
+
+    const formattedLabel = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    addRow('Operational Metadata', key, {
+      label: formattedLabel,
+      value: String(val),
+      mono: typeof val === 'number',
+    })
+  }
+
+  // Fallback static sections if present
+  if (defaultSections && sectionMap.size === 0) {
+    for (const sec of defaultSections) {
+      const rows: RowData[] = sec.fields.map((f) => ({
+        label: f.label,
+        value: resolveField(node, f),
+        mono: f.format === 'mono',
+        toneClass: f.format === 'status' ? statusToneClass(rawFieldValue(node, f)) : undefined,
+      }))
+      sectionMap.set(sec.title, rows)
+    }
+  }
+
+  return Array.from(sectionMap.entries()).map(([title, rows]) => ({ title, rows }))
 }
 
 function LogTab({ selectedNode }: { selectedNode: Node | null }) {

@@ -35,10 +35,16 @@ export const POPUP_CONFIG = {
   GAP: 10,
 } as const
 
+export const PROTECTED_CORE_KEYS = ['id', '__id', 'label', 'kind', 'parent_id', 'node_kind', 'status']
+
 export interface FieldDef {
   key: string
   label: string
+  sectionTitle?: string
   format?: FieldFormat
+  isProtected?: boolean
+  showOnCard?: 'Y' | 'N' | boolean | number
+  showInDetails?: 'Y' | 'N' | boolean | number
 }
 
 /**
@@ -47,19 +53,18 @@ export interface FieldDef {
  *   subtitle -- the small uppercase line under the title
  *   detail   -- key/value rows revealed by the expand toggle
  */
-export type NodeFieldRole = 'title' | 'subtitle' | 'detail'
+export type NodeFieldRole = 'title' | 'subtitle' | 'detail' | 'none'
 
 export interface NodeFieldDef extends FieldDef {
   role: NodeFieldRole
 }
 
 export const NODE_FIELDS: NodeFieldDef[] = [
-  { key: 'label', label: 'Name', role: 'title' },
-  { key: 'kind', label: 'Type', role: 'subtitle' },
-  { key: RESERVED_KEYS.id, label: 'ID', role: 'detail', format: 'mono' },
-  { key: 'status', label: 'Status', role: 'detail', format: 'status' },
-  { key: 'host', label: 'Host', role: 'detail', format: 'mono' },
-  { key: 'runs', label: 'Runs', role: 'detail' },
+  { key: 'label', label: 'Node Label', sectionTitle: 'Identity', role: 'title', isProtected: true },
+  { key: 'kind', label: 'Kind', sectionTitle: 'Identity', role: 'subtitle', isProtected: true },
+  { key: 'node_kind', label: 'Type', sectionTitle: 'Identity', role: 'subtitle', isProtected: true },
+  { key: RESERVED_KEYS.id, label: 'Node ID', sectionTitle: 'Identity', role: 'detail', format: 'mono', isProtected: true },
+  { key: 'status', label: 'Status', sectionTitle: 'State', role: 'detail', format: 'status', isProtected: true },
 ]
 
 /** Which node field carries the status stripe. Kept separate from NODE_FIELDS

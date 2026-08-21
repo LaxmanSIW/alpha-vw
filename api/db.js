@@ -53,7 +53,44 @@ export async function initDb() {
       description TEXT,
       folder TEXT,
       job_count INTEGER,
+      scope TEXT DEFAULT 'Public',
+      filter_status TEXT DEFAULT 'All',
+      grouping TEXT DEFAULT 'Folder',
       FOREIGN KEY (module_id) REFERENCES modules(id)
+    )
+  `)
+
+  try { await run("ALTER TABLE viewpoints ADD COLUMN scope TEXT DEFAULT 'Public'") } catch (err) {}
+  try { await run("ALTER TABLE viewpoints ADD COLUMN filter_status TEXT DEFAULT 'All'") } catch (err) {}
+  try { await run("ALTER TABLE viewpoints ADD COLUMN grouping TEXT DEFAULT 'Folder'") } catch (err) {}
+  try { await run("ALTER TABLE viewpoints ADD COLUMN sort_by TEXT DEFAULT 'label'") } catch (err) {}
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS field_definitions (
+      key TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      section_title TEXT DEFAULT 'Metadata',
+      role TEXT NOT NULL DEFAULT 'detail',
+      format TEXT DEFAULT 'text',
+      sort_order INTEGER DEFAULT 0,
+      is_protected INTEGER DEFAULT 0,
+      show_on_card TEXT DEFAULT 'Y',
+      show_in_details TEXT DEFAULT 'Y',
+      is_active INTEGER DEFAULT 1
+    )
+  `)
+
+  try { await run("ALTER TABLE field_definitions ADD COLUMN section_title TEXT DEFAULT 'Metadata'") } catch (err) {}
+  try { await run("ALTER TABLE field_definitions ADD COLUMN is_protected INTEGER DEFAULT 0") } catch (err) {}
+  try { await run("ALTER TABLE field_definitions ADD COLUMN show_on_card TEXT DEFAULT 'Y'") } catch (err) {}
+  try { await run("ALTER TABLE field_definitions ADD COLUMN show_in_details TEXT DEFAULT 'Y'") } catch (err) {}
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS node_field_values (
+      node_id TEXT NOT NULL,
+      field_key TEXT NOT NULL,
+      field_value TEXT,
+      PRIMARY KEY (node_id, field_key)
     )
   `)
 
@@ -97,6 +134,25 @@ export async function initDb() {
     )
   `)
 
+  // Seed default field definitions
+  const initialFields = [
+    { key: 'id', label: 'Node ID', section_title: 'Identity', role: 'detail', format: 'mono', sort_order: 1, is_protected: 1 },
+    { key: 'label', label: 'Node Label', section_title: 'Identity', role: 'title', format: 'text', sort_order: 2, is_protected: 1 },
+    { key: 'kind', label: 'Kind', section_title: 'Identity', role: 'subtitle', format: 'text', sort_order: 3, is_protected: 1 },
+    { key: 'parent_id', label: 'Parent Node', section_title: 'Identity', role: 'none', format: 'text', sort_order: 4, is_protected: 1 },
+    { key: 'node_kind', label: 'Type', section_title: 'Identity', role: 'subtitle', format: 'text', sort_order: 5, is_protected: 1 },
+    { key: 'status', label: 'Status', section_title: 'State', role: 'detail', format: 'status', sort_order: 6, is_protected: 1 },
+    { key: 'host', label: 'Host', section_title: 'Execution', role: 'detail', format: 'mono', sort_order: 7, is_protected: 0 },
+    { key: 'runs', label: 'Runs', section_title: 'Execution', role: 'detail', format: 'text', sort_order: 8, is_protected: 0 },
+  ]
+
+  for (const f of initialFields) {
+    await run(
+      'INSERT OR REPLACE INTO field_definitions (key, label, section_title, role, format, sort_order, is_protected, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
+      [f.key, f.label, f.section_title, f.role, f.format, f.sort_order, f.is_protected]
+    )
+  }
+
   // Seed default data if modules table is empty
   const moduleCount = await get('SELECT COUNT(*) as count FROM modules')
   if (moduleCount.count === 0) {
@@ -122,18 +178,18 @@ export async function initDb() {
     // Seed Nav Nodes
     const nodesToSeed = [
       { id: 'n-shared', label: 'Shared', kind: 'folder', parent_id: null, sort_order: 1 },
-      { id: 'n-7', label: 'Identity', kind: 'item', parent_id: 'n-shared', node_kind: 'Service', status: 'ok', host: 'ctm-idp-01', runs: 1204, sort_order: 1 },
-      { id: 'n-8', label: 'Audit Log', kind: 'item', parent_id: 'n-shared', node_kind: 'Service', status: 'ok', host: 'ctm-idp-01', runs: 1204, sort_order: 2 },
+      { id: 'n-7', label: 'Identity', kind: 'item', parent_id: 'n-shared', node_kind: 'Service', status: 'Completed', host: 'ctm-idp-01', runs: 1204, sort_order: 1 },
+      { id: 'n-8', label: 'Audit Log', kind: 'item', parent_id: 'n-shared', node_kind: 'Service', status: 'Executing', host: 'ctm-idp-01', runs: 1204, sort_order: 2 },
       { id: 'n-alpha', label: 'Alpha VW', kind: 'folder', parent_id: null, sort_order: 2 },
       { id: 'n-domain-a', label: 'Domain A', kind: 'folder', parent_id: 'n-alpha', sort_order: 1 },
-      { id: 'n-1', label: 'Ingest Gateway', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Source', status: 'ok', host: 'ctm-ingest-01', runs: 852, sort_order: 1 },
-      { id: 'n-2', label: 'Validator', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Process', status: 'ok', host: 'ctm-app-01', runs: 850, sort_order: 2 },
-      { id: 'n-3', label: 'Aggregator', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Process', status: 'ok', host: 'ctm-app-01', runs: 848, sort_order: 3 },
+      { id: 'n-1', label: 'Ingest Gateway', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Source', status: 'Completed', host: 'ctm-ingest-01', runs: 852, sort_order: 1 },
+      { id: 'n-2', label: 'Validator', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Process', status: 'Executing', host: 'ctm-app-01', runs: 850, sort_order: 2 },
+      { id: 'n-3', label: 'Aggregator', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Process', status: 'Wait for Event', host: 'ctm-app-01', runs: 848, sort_order: 3 },
       { id: 'n-domain-b', label: 'Domain B', kind: 'folder', parent_id: 'n-alpha', sort_order: 2 },
-      { id: 'n-4', label: 'Ledger Store', kind: 'item', parent_id: 'n-domain-b', node_kind: 'Store', status: 'ok', host: 'ctm-db-01', runs: 410, sort_order: 1 },
-      { id: 'n-5', label: 'Reconciler', kind: 'item', parent_id: 'n-domain-b', node_kind: 'Process', status: 'ok', host: 'ctm-app-02', runs: 411, sort_order: 2 },
+      { id: 'n-4', label: 'Ledger Store', kind: 'item', parent_id: 'n-domain-b', node_kind: 'Store', status: 'Completed', host: 'ctm-db-01', runs: 410, sort_order: 1 },
+      { id: 'n-5', label: 'Reconciler', kind: 'item', parent_id: 'n-domain-b', node_kind: 'Process', status: 'Wait for Event', host: 'ctm-app-02', runs: 411, sort_order: 2 },
       { id: 'n-domain-c', label: 'Domain C', kind: 'folder', parent_id: 'n-alpha', sort_order: 3 },
-      { id: 'n-6', label: 'Export Gateway', kind: 'item', parent_id: 'n-domain-c', node_kind: 'Sink', status: 'danger', host: 'ctm-edge-01', runs: 398, sort_order: 1 },
+      { id: 'n-6', label: 'Export Gateway', kind: 'item', parent_id: 'n-domain-c', node_kind: 'Sink', status: 'Failed', host: 'ctm-edge-01', runs: 398, sort_order: 1 },
     ]
 
     for (const node of nodesToSeed) {
@@ -193,6 +249,12 @@ export async function initDb() {
 /** Helper function to reconstruct hierarchical NavItem[] tree from database rows */
 export async function getNavTree() {
   const rows = await all('SELECT * FROM nav_nodes ORDER BY sort_order ASC, id ASC')
+  const fieldValues = await all('SELECT * FROM node_field_values')
+  const valuesByNode = new Map()
+  for (const fv of fieldValues) {
+    if (!valuesByNode.has(fv.node_id)) valuesByNode.set(fv.node_id, {})
+    valuesByNode.get(fv.node_id)[fv.field_key] = fv.field_value
+  }
 
   function buildTree(parentId = null) {
     const children = rows.filter((row) => row.parent_id === parentId)
@@ -211,6 +273,9 @@ export async function getNavTree() {
           // Ignore JSON parse errors
         }
       }
+
+      const eavValues = valuesByNode.get(row.id) || {}
+      customData = { ...customData, ...eavValues }
 
       if (row.kind === 'item') {
         item.data = {

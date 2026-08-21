@@ -256,6 +256,7 @@ export function buildFlowNodes(
   tree: NavItem[],
   layout: HierarchyLayout,
   expandedJobs: boolean,
+  fieldDefinitions?: unknown[],
 ): Node[] {
   const nodes: Node[] = []
 
@@ -274,7 +275,7 @@ export function buildFlowNodes(
         // not measured, so React Flow must be told rather than asked.
         width: size?.width,
         height: size?.height,
-        data: { label: item.label, count: item.children!.length },
+        data: { label: item.label, count: item.children!.length, fieldDefinitions },
         selectable: false,
         draggable: false,
         // Keeps containers behind their jobs regardless of paint order.
@@ -296,6 +297,7 @@ export function buildFlowNodes(
         folder: parentLabel,
         ...(item.data ?? {}),
         expanded: expandedJobs,
+        fieldDefinitions,
       },
       draggable: false,
       zIndex: 1,

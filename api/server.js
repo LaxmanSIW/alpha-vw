@@ -5,7 +5,7 @@ import { all, getNavTree, initDb, run } from './db.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
-const ALLOWED_TABLES = ['modules', 'viewpoints', 'nav_nodes', 'edges', 'node_logs']
+const ALLOWED_TABLES = ['modules', 'viewpoints', 'nav_nodes', 'edges', 'node_logs', 'field_definitions', 'node_field_values']
 const FIXED_NAV_NODE_COLUMNS = [
   'id',
   'label',
@@ -48,15 +48,21 @@ app.use(express.json({ limit: '10mb' }))
 app.get('/api/data', async (req, res) => {
   try {
     const modules = await all('SELECT id, label FROM modules')
-    const viewpointsRows = await all('SELECT id, module_id as moduleId, label, description, folder, job_count as jobCount FROM viewpoints')
+    const viewpointsRows = await all(
+      'SELECT id, module_id as moduleId, label, description, folder, job_count as jobCount, scope, filter_status as filterStatus, grouping, sort_by as sortBy FROM viewpoints'
+    )
     const navTree = await getNavTree()
     const edges = await all('SELECT id, source, target FROM edges')
+    const fieldDefinitions = await all(
+      'SELECT key, label, section_title as sectionTitle, role, format, sort_order as sortOrder, is_protected as isProtected, show_on_card as showOnCard, show_in_details as showInDetails, is_active as isActive FROM field_definitions ORDER BY sort_order ASC'
+    )
 
     res.json({
       modules,
       viewpoints: viewpointsRows,
       navTree,
       edges,
+      fieldDefinitions,
     })
   } catch (err) {
     console.error('Error fetching dashboard data:', err)
@@ -77,7 +83,8 @@ app.get('/api/modules', async (req, res) => {
 app.get('/api/viewpoints', async (req, res) => {
   try {
     const { moduleId } = req.query
-    let sql = 'SELECT id, module_id as moduleId, label, description, folder, job_count as jobCount FROM viewpoints'
+    let sql =
+      'SELECT id, module_id as moduleId, label, description, folder, job_count as jobCount, scope, filter_status as filterStatus, grouping FROM viewpoints'
     const params = []
     if (moduleId) {
       sql += ' WHERE module_id = ?'
@@ -146,14 +153,50 @@ app.get('/api/crud/:table', async (req, res) => {
   }
 })
 
+function normalizeRecordKeys(table, rawData) {
+  if (!rawData || typeof rawData !== 'object') return rawData
+  const mapped = { ...rawData }
+
+  if ('sectionTitle' in mapped) { mapped.section_title = mapped.sectionTitle; delete mapped.sectionTitle }
+  if ('sortOrder' in mapped) { mapped.sort_order = mapped.sortOrder; delete mapped.sortOrder }
+  if ('isProtected' in mapped) { mapped.is_protected = mapped.isProtected ? 1 : 0; delete mapped.isProtected }
+  if ('showOnCard' in mapped) { mapped.show_on_card = mapped.showOnCard; delete mapped.showOnCard }
+  if ('showInDetails' in mapped) { mapped.show_in_details = mapped.showInDetails; delete mapped.showInDetails }
+  if ('isActive' in mapped) { mapped.is_active = mapped.isActive ? 1 : 0; delete mapped.isActive }
+  if ('filterStatus' in mapped) { mapped.filter_status = mapped.filterStatus; delete mapped.filterStatus }
+  if ('sortBy' in mapped) { mapped.sort_by = mapped.sortBy; delete mapped.sortBy }
+  if ('nodeKind' in mapped) { mapped.node_kind = mapped.nodeKind; delete mapped.nodeKind }
+  if ('jobCount' in mapped) { mapped.job_count = mapped.jobCount; delete mapped.jobCount }
+  if ('moduleId' in mapped) { mapped.module_id = mapped.moduleId; delete mapped.moduleId }
+
+  return mapped
+}
+
+async function syncNodeFieldValues(nodeId, rawData) {
+  if (!nodeId || !rawData || typeof rawData !== 'object') return
+  const ignore = ['id', 'label', 'kind', 'parent_id', 'sort_order', 'data']
+  for (const [key, value] of Object.entries(rawData)) {
+    if (ignore.includes(key)) continue
+    if (value !== null && value !== undefined && value !== '') {
+      try {
+        await run(
+          'INSERT OR REPLACE INTO node_field_values (node_id, field_key, field_value) VALUES (?, ?, ?)',
+          [nodeId, key, String(value)]
+        )
+      } catch (e) {}
+    }
+  }
+}
+
 app.post('/api/crud/:table', async (req, res) => {
   const { table } = req.params
   if (!ALLOWED_TABLES.includes(table)) {
     return res.status(400).json({ error: `Invalid table: ${table}` })
   }
-  let data = req.body
+  const rawData = normalizeRecordKeys(table, req.body)
+  let data = rawData
   if (table === 'nav_nodes') {
-    data = prepareNavNodeRecord(data)
+    data = prepareNavNodeRecord(rawData)
   }
 
   const keys = Object.keys(data).filter(
@@ -168,7 +211,11 @@ app.post('/api/crud/:table', async (req, res) => {
 
   try {
     const result = await run(sql, params)
-    res.json({ success: true, id: data.id || result.lastID })
+    const insertedId = data.id || result.lastID
+    if (table === 'nav_nodes' && insertedId) {
+      await syncNodeFieldValues(String(insertedId), rawData)
+    }
+    res.json({ success: true, id: insertedId })
   } catch (err) {
     console.error(`Error inserting into ${table}:`, err)
     res.status(500).json({ error: err.message })
@@ -188,7 +235,8 @@ app.post('/api/crud/bulk/:table', async (req, res) => {
 
   try {
     let insertedCount = 0
-    for (let row of rawRows) {
+    for (let rawRow of rawRows) {
+      let row = normalizeRecordKeys(table, rawRow)
       if (table === 'nav_nodes') {
         row = prepareNavNodeRecord(row)
       }
@@ -200,6 +248,9 @@ app.post('/api/crud/bulk/:table', async (req, res) => {
       const sql = `INSERT OR REPLACE INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`
       const params = keys.map((k) => (row[k] === '' || row[k] === undefined ? null : row[k]))
       await run(sql, params)
+      if (table === 'nav_nodes' && (rawRow.id || row.id)) {
+        await syncNodeFieldValues(String(rawRow.id || row.id), rawRow)
+      }
       insertedCount++
     }
     res.json({ success: true, count: insertedCount })
@@ -214,21 +265,26 @@ app.put('/api/crud/:table/:id', async (req, res) => {
   if (!ALLOWED_TABLES.includes(table)) {
     return res.status(400).json({ error: `Invalid table: ${table}` })
   }
-  let data = req.body
+  const rawData = normalizeRecordKeys(table, req.body)
+  let data = rawData
   if (table === 'nav_nodes') {
-    data = prepareNavNodeRecord(data)
+    data = prepareNavNodeRecord(rawData)
   }
 
-  const keys = Object.keys(data).filter((k) => k !== 'id')
+  const pkColumn = table === 'field_definitions' ? 'key' : 'id'
+  const keys = Object.keys(data).filter((k) => k !== pkColumn && k !== 'id')
   if (keys.length === 0) {
     return res.status(400).json({ error: 'No data provided to update' })
   }
   const setClause = keys.map((k) => `${k} = ?`).join(', ')
-  const sql = `UPDATE ${table} SET ${setClause} WHERE id = ?`
+  const sql = `UPDATE ${table} SET ${setClause} WHERE ${pkColumn} = ?`
   const params = [...keys.map((k) => (data[k] === '' ? null : data[k])), id]
 
   try {
     await run(sql, params)
+    if (table === 'nav_nodes') {
+      await syncNodeFieldValues(id, rawData)
+    }
     res.json({ success: true, id })
   } catch (err) {
     console.error(`Error updating ${table}:`, err)
@@ -242,7 +298,14 @@ app.delete('/api/crud/:table/:id', async (req, res) => {
     return res.status(400).json({ error: `Invalid table: ${table}` })
   }
   try {
-    await run(`DELETE FROM ${table} WHERE id = ?`, [id])
+    if (table === 'field_definitions') {
+      const target = await get('SELECT is_protected FROM field_definitions WHERE key = ?', [id])
+      if (target && target.is_protected === 1) {
+        return res.status(400).json({ error: 'Cannot delete protected core system field.' })
+      }
+    }
+    const pkColumn = table === 'field_definitions' ? 'key' : 'id'
+    await run(`DELETE FROM ${table} WHERE ${pkColumn} = ?`, [id])
     res.json({ success: true, id })
   } catch (err) {
     console.error(`Error deleting from ${table}:`, err)
