@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useReactFlow, type Node } from '@xyflow/react'
+import { useReactFlow, type Edge, type Node } from '@xyflow/react'
 import TopHeader from './TopHeader'
 import ViewpointTabs from './ViewpointTabs'
 import ActionBar from './ActionBar'
@@ -12,13 +12,16 @@ import ViewpointCatalog from './ViewpointCatalog'
 import CanvasSearch from './CanvasSearch'
 import StatusBar from './StatusBar'
 import ContextPopup, { calculatePopupPlacement, nextContextMenuState } from './ContextPopup'
+import AdminModal from './AdminModal'
 import { INITIAL_EDGES, MODULES, NAV_TREE, VIEWPOINTS } from '../data/mockData'
+import { fetchDashboardData } from '../api/client'
 import { absolutePositionOf, buildFlowNodes, layoutHierarchy } from '../layout'
 import { CONTEXT_MENU_ACTIONS } from '../config/viewConfig'
 import {
   VIEWPOINT_CATALOG_TAB_ID,
   type ContextMenuState,
   type DensityName,
+  type ModuleTab,
   type NavItem,
   type PaneId,
   type ThemeName,
@@ -31,8 +34,6 @@ function collectFolderIds(items: NavItem[]): string[] {
   )
 }
 
-const ALL_FOLDER_IDS = collectFolderIds(NAV_TREE)
-
 /** Shared empty array: a fresh `[]` fallback would be a new reference every
  *  render and would invalidate every memo downstream of it. */
 const NO_TABS: string[] = []
@@ -40,8 +41,18 @@ const NO_TABS: string[] = []
 function DashboardShell() {
   const [theme, setTheme] = useState<ThemeName>('light')
   const [density, setDensity] = useState<DensityName>('compact')
+  const [isAdminOpen, setIsAdminOpen] = useState(false)
 
-  const [activeModuleId, setActiveModuleId] = useState(MODULES[0].id)
+  // State managed from DB API calls
+  const [modules, setModules] = useState<ModuleTab[]>(MODULES)
+  const [viewpoints, setViewpoints] = useState<Viewpoint[]>(VIEWPOINTS)
+  const [navTree, setNavTree] = useState<NavItem[]>(NAV_TREE)
+  const [edges, setEdges] = useState<Edge[]>(INITIAL_EDGES)
+
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const [activeModuleId, setActiveModuleId] = useState(() => modules[0]?.id || 'architecture')
 
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
@@ -51,13 +62,12 @@ function DashboardShell() {
   const [searchOpen, setSearchOpen] = useState(false)
 
   const [expandedNavIds, setExpandedNavIds] = useState<Set<string>>(
-    () => new Set(ALL_FOLDER_IDS),
+    () => new Set(collectFolderIds(NAV_TREE)),
   )
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextList, setContextList] = useState<ContextMenuState | null>(null)
-  /** Whether job boxes show their detail rows. One flag for all of them, since
-   *  the action bar toggle is all-or-nothing. */
+  /** Whether job boxes show their detail rows. */
   const [jobsExpanded, setJobsExpanded] = useState(true)
 
   const { setCenter, fitView, getZoom } = useReactFlow()
@@ -67,28 +77,56 @@ function DashboardShell() {
     document.documentElement.dataset.density = density
   }, [theme, density])
 
+  // Fetch data from backend SQLite DB
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setIsRefreshing(true)
+    else setIsLoading(true)
+
+    try {
+      const data = await fetchDashboardData()
+      if (data.modules && data.modules.length > 0) {
+        setModules(data.modules)
+      }
+      if (data.viewpoints) {
+        setViewpoints(data.viewpoints)
+      }
+      if (data.navTree) {
+        setNavTree(data.navTree)
+        setExpandedNavIds(new Set(collectFolderIds(data.navTree)))
+      }
+      if (data.edges) {
+        setEdges(data.edges)
+      }
+    } catch (err) {
+      console.warn('Backend API request failed, falling back to local dataset:', err)
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }, [])
+
+  // Initial load on mount
+  useEffect(() => {
+    loadData(false)
+  }, [loadData])
+
   const layout = useMemo(
-    () => layoutHierarchy(
-      NAV_TREE,
-      INITIAL_EDGES,
-    ),
-    [],
+    () => layoutHierarchy(navTree, edges, jobsExpanded),
+    [navTree, edges, jobsExpanded],
   )
 
   const nodes = useMemo(
-    () => buildFlowNodes(NAV_TREE, layout, jobsExpanded),
-    [layout, jobsExpanded],
+    () => buildFlowNodes(navTree, layout, jobsExpanded),
+    [navTree, layout, jobsExpanded],
   )
 
   const jobNodes = useMemo(() => nodes.filter((node) => node.type === 'flat'), [nodes])
 
   const catalog = useMemo(
-    () => VIEWPOINTS.filter((viewpoint) => viewpoint.moduleId === activeModuleId),
-    [activeModuleId],
+    () => viewpoints.filter((viewpoint) => viewpoint.moduleId === activeModuleId),
+    [viewpoints, activeModuleId],
   )
 
-  // Open tabs and the active tab are tracked per module so switching modules and
-  // coming back does not throw away what you had open.
   const [openIdsByModule, setOpenIdsByModule] = useState<Record<string, string[]>>({
     architecture: ['arch-v1'],
   })
@@ -105,8 +143,6 @@ function DashboardShell() {
     [openIds, catalog],
   )
 
-  // Resolved during render rather than corrected in an effect: an effect would
-  // paint one frame pointing at a closed tab and then re-render.
   const requestedTabId = activeTabByModule[activeModuleId] ?? VIEWPOINT_CATALOG_TAB_ID
   const activeTabId =
     requestedTabId === VIEWPOINT_CATALOG_TAB_ID || openIds.includes(requestedTabId)
@@ -139,8 +175,6 @@ function DashboardShell() {
         if (index === -1) return current
         const next = existing.filter((id) => id !== viewpointId)
 
-        // Closing the active tab hands focus to its left neighbour, falling back
-        // to the catalog. Jumping to the far end would lose the user's place.
         setActiveTabByModule((tabs) => {
           if (tabs[activeModuleId] !== viewpointId) return tabs
           const neighbour = next[index - 1] ?? next[index] ?? VIEWPOINT_CATALOG_TAB_ID
@@ -158,11 +192,6 @@ function DashboardShell() {
     [nodes, selectedNodeId],
   )
 
-  /**
-   * Select a node and bring it to the centre. Shared by the navigation tree and
-   * the search results so picking a thing from a list always lands you looking
-   * at it.
-   */
   const focusNode = useCallback(
     (nodeId: string) => {
       setSelectedNodeId(nodeId)
@@ -172,8 +201,6 @@ function DashboardShell() {
       const width = layout.sizes.get(nodeId)?.width ?? 176
       const height = layout.sizes.get(nodeId)?.height ?? 48
       setCenter(absolute.x + width / 2, absolute.y + height / 2, {
-        // Preserve the current zoom -- snapping to a fixed level would discard
-        // the scale the user deliberately chose.
         zoom: getZoom(),
         duration: 250,
       })
@@ -183,8 +210,6 @@ function DashboardShell() {
 
   const onNavSelect = useCallback(
     (navId: string) => {
-      // Nav ids are node ids, so no lookup table. Folders centre on their
-      // container box, which is a useful way to jump around a large graph.
       focusNode(navId)
     },
     [focusNode],
@@ -195,11 +220,12 @@ function DashboardShell() {
 
   const onToggleStructure = useCallback(() => {
     if (expandTarget === 'nav') {
-      setExpandedNavIds((current) => (current.size > 0 ? new Set() : new Set(ALL_FOLDER_IDS)))
+      const allFolders = collectFolderIds(navTree)
+      setExpandedNavIds((current) => (current.size > 0 ? new Set() : new Set(allFolders)))
     } else {
       setJobsExpanded((current) => !current)
     }
-  }, [expandTarget])
+  }, [expandTarget, navTree])
 
   const onNavToggle = useCallback((id: string) => {
     setExpandedNavIds((current) => {
@@ -265,7 +291,7 @@ function DashboardShell() {
           options: CONTEXT_MENU_ACTIONS,
         },
         actionId,
-        INITIAL_EDGES,
+        edges,
         map,
       )
 
@@ -275,7 +301,7 @@ function DashboardShell() {
         relation,
       })
     },
-    [contextMenu, nodes],
+    [contextMenu, nodes, edges],
   )
 
   const selectedLabel = selectedNode
@@ -285,16 +311,23 @@ function DashboardShell() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas text-text">
       <TopHeader
-        modules={MODULES}
+        modules={modules}
         activeModuleId={activeModuleId}
         onModuleChange={setActiveModuleId}
         theme={theme}
         onThemeToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
         density={density}
         onDensityToggle={() => setDensity((d) => (d === 'compact' ? 'comfortable' : 'compact'))}
+        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
-      <div aria-hidden="true" className="h-divider shrink-0 bg-primary" />
+      <div
+        aria-hidden="true"
+        className={[
+          'h-divider shrink-0 transition-colors duration-200',
+          isLoading || isRefreshing ? 'animate-pulse bg-accent' : 'bg-primary',
+        ].join(' ')}
+      />
 
       <ViewpointTabs
         openViewpoints={openViewpoints}
@@ -312,6 +345,8 @@ function DashboardShell() {
         onFitView={() => fitView({ duration: 250 })}
         searchOpen={searchOpen}
         onSearchToggle={() => setSearchOpen((v) => !v)}
+        onRefresh={() => loadData(true)}
+        isRefreshing={isRefreshing}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -324,7 +359,7 @@ function DashboardShell() {
           onFocusCapture={() => setFocusedPane('nav')}
         >
           <NavigationTree
-            items={NAV_TREE}
+            items={navTree}
             expandedIds={expandedNavIds}
             onToggle={onNavToggle}
             selectedId={selectedNodeId}
@@ -347,7 +382,7 @@ function DashboardShell() {
           ) : (
             <FlowCanvas
               nodes={nodes}
-              edges={INITIAL_EDGES}
+              edges={edges}
               selectedNodeId={selectedNodeId}
               onNodeClick={onNodeClick}
               onNodeContextMenu={onNodeContextMenu}
@@ -379,14 +414,14 @@ function DashboardShell() {
           <DetailsPanel
             selectedNode={selectedNode}
             nodeCount={jobNodes.length}
-            edgeCount={INITIAL_EDGES.length}
+            edgeCount={edges.length}
           />
         </SidePanel>
       </div>
 
       <StatusBar
         nodeCount={jobNodes.length}
-        edgeCount={INITIAL_EDGES.length}
+        edgeCount={edges.length}
         selectedLabel={selectedLabel}
         focusedPane={focusedPane}
       />
@@ -416,6 +451,12 @@ function DashboardShell() {
           }}
         />
       )}
+
+      <AdminModal
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        onDataChanged={() => loadData(true)}
+      />
     </div>
   )
 }

@@ -104,6 +104,7 @@ export interface HierarchyLayout {
 export function layoutHierarchy(
   tree: NavItem[],
   edges: Edge[],
+  expandedJobs: boolean = true,
 ): HierarchyLayout {
   const descendants = buildDescendantIndex(tree)
   const positions = new Map<string, Point>()
@@ -139,7 +140,7 @@ export function layoutHierarchy(
     if (item.kind !== 'folder' || children.length === 0) {
       const size = {
         width: LAYOUT.nodeWidth,
-        height: LAYOUT.nodeHeight,
+        height: expandedJobs ? LAYOUT.nodeHeight : LAYOUT.nodeCollapsedHeight,
       }
       sizes.set(item.id, size)
       return size

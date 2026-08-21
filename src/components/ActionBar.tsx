@@ -13,6 +13,8 @@ interface ActionBarProps {
   onFitView: () => void
   searchOpen: boolean
   onSearchToggle: () => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
 const TARGET_LABEL: Record<'nav' | 'canvas', string> = {
@@ -38,6 +40,8 @@ function ActionBar({
   onFitView,
   searchOpen,
   onSearchToggle,
+  onRefresh,
+  isRefreshing = false,
 }: ActionBarProps) {
   const [editing, setEditing] = useState(false)
   const target = TARGET_LABEL[expandTarget]
@@ -52,7 +56,12 @@ function ActionBar({
         onClick={() => setEditing((v) => !v)}
       />
       <IconButton icon="save" title="Save" />
-      <IconButton icon="refresh" title="Refresh" />
+      <IconButton
+        icon="refresh"
+        title={isRefreshing ? 'Refreshing data from DB...' : 'Refresh data from DB'}
+        onClick={onRefresh}
+        disabled={isRefreshing}
+      />
 
       <Separator />
 

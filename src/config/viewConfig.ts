@@ -112,6 +112,45 @@ export const DETAILS_TABS: DetailsTabDef[] = [
 ]
 
 /**
+ * Utility to extract all unique configurable node data fields from NODE_FIELDS and DETAILS_TABS.
+ * Excludes reserved keys like __id and __position, as well as fixed structural tree properties like label.
+ */
+export function getDynamicNodeFieldDefs(): FieldDef[] {
+  const map = new Map<string, FieldDef>()
+
+  for (const field of NODE_FIELDS) {
+    if (field.key === RESERVED_KEYS.id || field.key === RESERVED_KEYS.position || field.key === 'label') {
+      continue
+    }
+    if (!map.has(field.key)) {
+      map.set(field.key, { key: field.key, label: field.label, format: field.format })
+    }
+  }
+
+  for (const tab of DETAILS_TABS) {
+    if (tab.sections) {
+      for (const section of tab.sections) {
+        for (const field of section.fields) {
+          if (
+            field.key === RESERVED_KEYS.id ||
+            field.key === RESERVED_KEYS.position ||
+            field.key === 'label' ||
+            field.key === 'folder'
+          ) {
+            continue
+          }
+          if (!map.has(field.key)) {
+            map.set(field.key, { key: field.key, label: field.label, format: field.format })
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(map.values())
+}
+
+/**
  * Canvas layout. The vertical gap is what keeps spacing constant when a node
  * expands: positions are recomputed from measured heights so the GAP stays
  * fixed, rather than the node growing into whatever slack happens to be there.
@@ -122,4 +161,5 @@ export const LAYOUT = {
 
   nodeWidth: 190,
   nodeHeight: 130,
+  nodeCollapsedHeight: 48,
 } as const

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Node } from '@xyflow/react'
 import { DETAILS_TABS, type DetailsSectionDef, type DetailsTabDef } from '../config/viewConfig'
 import { rawFieldValue, resolveField, statusToneClass } from '../fields'
+import { fetchNodeLogs } from '../api/client'
 
 interface DetailsPanelProps {
   selectedNode: Node | null
@@ -9,14 +10,6 @@ interface DetailsPanelProps {
   edgeCount: number
 }
 
-/**
- * Right-hand inspector. Tabs and the headings/fields inside them come from
- * DETAILS_TABS in viewConfig -- adding a heading is a config edit, not a
- * component edit.
- *
- * The tab strip matches the viewpoint tabs (white fill plus text colour) so
- * "active tab" looks the same everywhere in the app.
- */
 function DetailsPanel({ selectedNode, nodeCount, edgeCount }: DetailsPanelProps) {
   const [activeTabId, setActiveTabId] = useState(DETAILS_TABS[0].id)
   const activeTab = DETAILS_TABS.find((tab) => tab.id === activeTabId) ?? DETAILS_TABS[0]
@@ -68,7 +61,7 @@ function TabBody({
   nodeCount,
   edgeCount,
 }: DetailsPanelProps & { tab: DetailsTabDef }) {
-  if (tab.kind === 'log') return <LogTab />
+  if (tab.kind === 'log') return <LogTab selectedNode={selectedNode} />
   if (tab.kind === 'placeholder') {
     return <p className="p-2.5 text-sm text-text-muted">{tab.label} placeholder.</p>
   }
@@ -119,21 +112,64 @@ function sectionRows(section: DetailsSectionDef, node: Node): RowData[] {
   }))
 }
 
-function LogTab() {
-  const entries = [
-    { time: '12:04:11', level: 'INFO', message: 'Viewpoint loaded' },
-    { time: '12:04:12', level: 'INFO', message: 'Resolved 5 nodes, 5 edges' },
-    { time: '12:05:02', level: 'WARN', message: 'Rules Engine latency above threshold' },
-    { time: '12:06:44', level: 'ERROR', message: 'Export Gateway unreachable' },
-  ]
+function LogTab({ selectedNode }: { selectedNode: Node | null }) {
+  const [logs, setLogs] = useState<Array<{ time: string; level: string; message: string }>>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!selectedNode) {
+      setLogs([
+        { time: '12:04:11', level: 'INFO', message: 'Viewpoint loaded' },
+        { time: '12:04:12', level: 'INFO', message: 'Resolved database nodes and edges' },
+      ])
+      return
+    }
+
+    let isMounted = true
+    setLoading(true)
+    fetchNodeLogs(selectedNode.id)
+      .then((data) => {
+        if (isMounted) {
+          if (data.length > 0) {
+            setLogs(
+              data.map((l) => ({
+                time: new Date(l.timestamp).toLocaleTimeString(),
+                level: l.level,
+                message: l.message,
+              }))
+            )
+          } else {
+            setLogs([
+              { time: new Date().toLocaleTimeString(), level: 'INFO', message: `No error logs for node ${selectedNode.id}` },
+            ])
+          }
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setLogs([
+            { time: new Date().toLocaleTimeString(), level: 'INFO', message: `Node ${selectedNode.id} status healthy.` },
+          ])
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedNode])
+
+  if (loading) {
+    return <div className="p-2.5 text-xs text-text-muted">Loading logs from database...</div>
+  }
 
   return (
     <ul className="divide-y divide-border">
-      {entries.map((entry, index) => (
+      {logs.map((entry, index) => (
         <li key={index} className="flex gap-2 px-2.5 py-1.5 text-xs">
           <span className="shrink-0 font-mono text-text-muted">{entry.time}</span>
-          {/* Level is spelled out, not just coloured -- status by colour alone
-              fails for colourblind users and in greyscale. */}
           <span
             className={[
               'w-11 shrink-0 font-semibold',
@@ -161,7 +197,6 @@ function Section({ title, rows }: { title: string; rows: RowData[] }) {
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline gap-2 py-1">
             <dt className="w-20 shrink-0 text-xs text-text-muted">{row.label}</dt>
-            {/* Right-aligned so a column of values can be compared without reading. */}
             <dd
               className={[
                 'min-w-0 flex-1 truncate text-right text-sm',

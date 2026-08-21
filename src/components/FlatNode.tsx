@@ -43,7 +43,7 @@ function FlatNode({ id, data, selected }: NodeProps) {
   return (
     <div
       className={[
-        'fed-node flex w-44 items-stretch border bg-surface',
+        'fed-node flex w-[190px] items-stretch border bg-surface',
         isRelated ? '' : 'border-border-strong',
         selected && !isRelated ? 'border-primary' : '',
       ].join(' ')}

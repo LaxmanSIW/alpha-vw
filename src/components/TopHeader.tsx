@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Icon from './Icon'
 import IconButton from './ui/IconButton'
 import type { DensityName, ModuleTab, ThemeName } from '../types'
@@ -10,6 +11,7 @@ interface TopHeaderProps {
   onThemeToggle: () => void
   density: DensityName
   onDensityToggle: () => void
+  onOpenAdmin?: () => void
 }
 
 /**
@@ -28,12 +30,14 @@ function TopHeader({
   onThemeToggle,
   density,
   onDensityToggle,
+  onOpenAdmin,
 }: TopHeaderProps) {
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+
   return (
     <header className="flex h-header shrink-0 items-stretch border-b border-border bg-surface">
       <div className="flex items-center gap-2 pr-4 pl-3">
-        {/* Logo mark: overlapping squares, deliberately sharp-cornered. Swap for
-            the real asset when there is one -- keep it square-edged. */}
+        {/* Logo mark: overlapping squares, deliberately sharp-cornered */}
         <span aria-hidden="true" className="relative block size-4 shrink-0">
           <span className="absolute top-0 left-0 size-3 bg-primary" />
           <span className="absolute right-0 bottom-0 size-3 bg-accent" />
@@ -52,9 +56,6 @@ function TopHeader({
               type="button"
               onClick={() => onModuleChange(module.id)}
               aria-current={isActive ? 'page' : undefined}
-              // Selection and hover change text color only -- no underline, no
-              // fill, no border. Nothing about the module tab's box may move or
-              // gain an edge, so the header stays a single unbroken band.
               className={[
                 'px-3 text-sm transition-colors duration-75',
                 isActive
@@ -70,7 +71,18 @@ function TopHeader({
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-0.5 pr-2">
+      <div className="flex items-center gap-1 pr-2 relative">
+        {/* Direct Admin Shortcut Button */}
+        <button
+          type="button"
+          onClick={onOpenAdmin}
+          className="flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/30"
+          title="Open Admin Management Panel"
+        >
+          <Icon name="settings" size={13} />
+          <span>Admin DB</span>
+        </button>
+
         <IconButton
           icon="theme"
           title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
@@ -85,16 +97,56 @@ function TopHeader({
           active={density === 'comfortable'}
         />
         <span className="mx-1 h-4 w-px bg-border" />
-        <button
-          type="button"
-          title="Account"
-          className="flex items-center gap-1.5 px-1.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text"
-        >
-          <span className="flex size-5 items-center justify-center bg-surface-sunken text-xs font-semibold text-text-secondary">
-            LD
-          </span>
-          <Icon name="chevron-down" size={12} />
-        </button>
+
+        {/* Profile / Account Dropdown Trigger */}
+        <div className="relative">
+          <button
+            type="button"
+            title="Account Menu"
+            onClick={() => setAccountMenuOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 px-2 py-1 text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors border border-transparent hover:border-border"
+          >
+            <span className="flex size-5 items-center justify-center bg-primary text-xs font-semibold text-primary-fg">
+              LD
+            </span>
+            <span className="text-xs font-medium text-text">User / LD</span>
+            <Icon name="chevron-down" size={12} />
+          </button>
+
+          {/* Profile Dropdown Menu */}
+          {accountMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setAccountMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 z-50 w-56 border border-border bg-surface shadow-lg text-text py-1 text-xs">
+                <div className="px-3 py-2 border-b border-border bg-surface-sunken">
+                  <p className="font-semibold text-text">Lead Developer (LD)</p>
+                  <p className="text-text-muted text-[11px]">admin@alphavw.io</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountMenuOpen(false)
+                    onOpenAdmin?.()
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-primary font-medium"
+                >
+                  <Icon name="settings" size={14} />
+                  <span>Admin Database Panel</span>
+                </button>
+
+                <div className="border-t border-border my-1" />
+
+                <div className="px-3 py-1.5 text-text-muted text-[11px]">
+                  Role: Administrator
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   )

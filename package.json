@@ -5,15 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api": "node api/server.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@xyflow/react": "^12.11.2",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "@tailwindcss/vite":"^4.3.3",
-    "@xyflow/react": "^12.11.2"
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
