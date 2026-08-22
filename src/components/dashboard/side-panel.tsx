@@ -66,7 +66,7 @@ export default function SidePanel({
     return (
       <div
         className={cn(
-          'flex shrink-0 flex-col items-center justify-between py-2 border-b border-border bg-surface',
+          'flex shrink-0 flex-col items-center py-2 border-b border-border bg-surface h-full',
           side === 'left' ? 'border-r' : 'border-l',
         )}
         style={{ width: COLLAPSED_W }}
@@ -76,11 +76,13 @@ export default function SidePanel({
           onClick={onToggle}
           aria-label={`Expand ${title}`}
           title={`Expand ${title}`}
-          className="inline-flex items-center justify-center h-[var(--icon-btn)] w-[var(--icon-btn)] text-text-muted hover:text-text hover:bg-surface-hover"
+          className="inline-flex items-center justify-center h-[var(--icon-btn)] w-[var(--icon-btn)] text-text-muted hover:text-text hover:bg-surface-hover mb-4 shrink-0"
         >
           {side === 'left' ? <ChevronRight size={14} strokeWidth={1.5} /> : <ChevronLeft size={14} strokeWidth={1.5} />}
         </button>
-        <span className="text-vertical label-caps text-text-muted">{title}</span>
+        <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
+          <span className="text-vertical label-caps text-text-muted select-none">{title}</span>
+        </div>
       </div>
     )
   }
@@ -128,11 +130,22 @@ export default function SidePanel({
           if (e.key === 'ArrowRight' && side === 'right') setWidth((w) => Math.max(MIN_W, w - 16))
         }}
         className={cn(
-          'absolute top-0 bottom-0 w-px cursor-col-resize hover:bg-primary/40 focus:bg-primary/40',
-          side === 'left' ? 'right-0' : 'left-0',
+          'absolute top-0 bottom-0 w-[12px] cursor-col-resize z-50 flex items-center justify-center transition-colors',
+          'hover:bg-primary/20 focus:bg-primary/20 bg-transparent',
+          side === 'left' ? 'right-0 translate-x-[6px]' : 'left-0 -translate-x-[6px]',
         )}
         style={{ touchAction: 'none' }}
-      />
+      >
+        {/* 6x2 dot grip handle */}
+        <div className="flex flex-col gap-0.5 items-center justify-center py-1 bg-surface border border-border rounded shadow-sm opacity-60 hover:opacity-100 transition-opacity">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex gap-0.5 px-0.5">
+              <div className="size-0.5 rounded-full bg-text-muted" />
+              <div className="size-0.5 rounded-full bg-text-muted" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

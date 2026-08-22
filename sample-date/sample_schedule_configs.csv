@@ -1,0 +1,2 @@
+id,name,configData,lastEvaluatedDate,isScheduledToday
+sched-weekly,WEEKLY_CLEANUP,"{""CALENDARS"":{""REGULAR"":{""WORKDAYS"":[1,2,3,4,5],""HOLIDAYS"":[]}},""WEEKDAYS"":[""5""],""MONTHDAYS"":[],""MONTHS"":[""ALL""],""WEEK_MONTH_RELATION"":""OR"",""CONFIRMATION"":{""CALENDAR"":""REGULAR"",""EXCEPTION_POLICY"":""SHIFT_AND_RUN_ON_NEXT_CONFIRMED_DAY"",""SHIFT_BY"":0},""ACTIVITY_PERIOD"":{""MODE"":""ALWAYS""}}",2026-08-22,Yes

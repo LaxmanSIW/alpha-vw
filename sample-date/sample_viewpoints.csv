@@ -1,0 +1,3 @@
+id,moduleId,label,description,folder,jobCount,scope,filterStatus,grouping,sortBy
+vp-finance-all,finance,All Finance Jobs,Default view of all financial workflow jobs,,0,Public,All,Folder,label
+vp-ops-critical,operations,Ops Critical,Critical processing path view for global operations,,0,Private,fail,Folder,sortOrder

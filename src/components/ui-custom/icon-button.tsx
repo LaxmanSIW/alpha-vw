@@ -25,12 +25,12 @@ const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         onClick={onClick}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center justify-center border transition-colors',
+          'inline-flex items-center justify-center border border-transparent rounded transition-colors',
           'h-[var(--icon-btn)] w-[var(--icon-btn)]',
           active
-            ? 'border-primary bg-primary/10 text-primary'
-            : 'border-border-strong bg-surface text-text hover:bg-surface-hover hover:border-text-muted',
-          disabled && 'opacity-40 cursor-not-allowed hover:bg-surface',
+            ? 'bg-primary/10 text-primary'
+            : 'bg-transparent text-text hover:bg-surface-hover',
+          disabled && 'opacity-40 cursor-not-allowed hover:bg-transparent',
           className,
         )}
       >

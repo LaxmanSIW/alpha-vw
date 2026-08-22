@@ -162,7 +162,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   setActiveModuleId: (id) => set({ activeModuleId: id }),
-  setSelectedNodeId: (id) => set({ selectedNodeId: id }),
+  setSelectedNodeId: (id) => set((s) => ({
+    selectedNodeId: id,
+    rightCollapsed: id !== null ? false : s.rightCollapsed,
+  })),
   setFocusedPane: (p) => set({ focusedPane: p }),
   toggleJobsExpanded: () => set((s) => ({ jobsExpanded: !s.jobsExpanded })),
   setJobsExpanded: (v) => set({ jobsExpanded: v }),

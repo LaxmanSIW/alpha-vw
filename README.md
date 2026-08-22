@@ -95,55 +95,60 @@ This command performs:
 
 ## 5. Production Deployment & Package Installation
 
-When deploying the application to a production server (Linux, Windows Server, macOS, or Docker container), you must install production runtime dependencies and build native binary bindings for the target server's operating system and architecture.
+When deploying the application to a target computer (such as a production server or another workstation) where **only Node.js is installed**, you can use the built-in standalone deployment configuration.
 
-### Packages Required on the Production Server
-
-| Package | Purpose | Requirement |
-| :--- | :--- | :--- |
-| `sharp` | High-performance image processing | **Mandatory** — Contains compiled C++ native binary bindings (`.node` / `.dll` / `.so`) built for host server OS |
-| `@prisma/client` | Prisma Database ORM Client | **Mandatory** — Interacts with Prisma native query engine binary |
-| `prisma` | Database CLI | **Mandatory** — Required to execute `npx prisma generate` and `npx prisma db push` on server OS |
-| `pm2` | Process Manager | **Optional** — Used if you want PM2 for background daemonization and reboot auto-restart |
+The `run.bat` utility script automates the installation of native platform-specific packages (`sharp`, `@prisma/client`, and `prisma`), sets up the database, and boots the production server.
 
 ---
 
-### Step-by-Step Production Deployment Instructions
+### Step 1: Copy Deployment Files to the Target Computer
 
-#### Step 1: Copy Deployment Files to Production Server
-Transfer the following files to your production server directory:
-- `.next/standalone/` (The standalone build folder)
-- `prisma/` directory (containing `schema.prisma`)
-- `db/custom.db` (The SQLite database file)
-- `.env` (Production environment file)
+Build the project on your development machine first (`npm run build`). Then, transfer only the following folders and files to a new directory (e.g. `C:\alpha-vw\`) on the target computer:
 
-#### Step 2: Install Production Packages on Target Server OS
-Run `npm install --omit=dev` in the production deployment directory so native C++ bindings compile for the server's OS:
+* **`.next/standalone/`** (Copy all contents—including `server.js` and `package.json`—directly to the root of the deployment folder)
+* **`.next/static/`** (Copy the directory to `.next/static/` relative to the root of the deployment folder)
+* **`public/`** (Copy the directory to `public/` relative to the root of the deployment folder)
+* **`prisma/`** (Copy the directory containing `schema.prisma` to the root of the deployment folder)
+* **`db/`** (Copy the directory containing `custom.db` to the root of the deployment folder)
+* **`run.bat`** (Copy the script to the root of the deployment folder)
 
-```bash
-# Install production dependencies on server OS
-npm install --omit=dev sharp @prisma/client prisma
-
-# Or if installing inside .next/standalone directory:
-cd .next/standalone
-npm install sharp @prisma/client prisma
+#### Resulting Folder Structure on the Target Computer:
+```text
+C:\alpha-vw\
+├── db\
+│   └── custom.db           <-- SQLite database
+├── prisma\
+│   └── schema.prisma       <-- Prisma database schema definition
+├── public\
+│   └── (static logo/imgs)  <-- Public static files
+├── .next\
+│   └── static\             <-- Next.js client-side assets
+├── node_modules\           <-- Bundled server dependencies
+├── package.json            <-- Bundled package config
+├── server.js               <-- Standalone entry point file
+└── run.bat                 <-- Setup and startup script
 ```
 
-#### Step 3: Generate Prisma Native Query Engine for Production OS
-Generate the Prisma Client binaries for the production operating system:
+---
 
-```bash
-npx prisma generate
+### Step 2: Bootstrap and Start the Server on Target OS
+
+Open the Command Prompt or PowerShell in the deployment directory on the target computer and execute:
+
+```cmd
+run.bat -e p -d y -p <port>
 ```
 
-#### Step 4: Verify Database Connection & Push Schema
-Ensure the database file `db/custom.db` is present and permissions are granted, then verify the schema:
-
-```bash
-npx prisma db push
+#### Example (Running on Port 8080):
+```cmd
+run.bat -e p -d y -p 8080
 ```
 
-#### Step 5: Start Production Server
+#### What this command does automatically on the target OS:
+1. **`-e p` (Production Mode)**: Automatically sets `NODE_ENV=production` and tells the script to bypass the Next.js compile/build phase (since it has already been pre-compiled).
+2. **`-d y` (Dependency Setup)**: Since only Node.js is installed on the target machine, it executes `npm install --omit=dev sharp @prisma/client prisma` to compile the platform-specific native C++ bindings for the target OS, generates the local query engines (`npx prisma generate`), and syncs the SQLite database.
+3. **`-p 8080` (Port)**: Binds the web server to the specified port number.
+4. **Boot Server**: Immediately starts the standalone production server.
 
 ---
 

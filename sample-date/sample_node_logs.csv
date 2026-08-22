@@ -1,0 +1,4 @@
+id,nodeId,timestamp,level,message
+1,n-job-001,2026-08-22 08:00:00,INFO,Job initialized successfully
+2,n-job-001,2026-08-22 08:00:05,WARN,Slight delay in connecting to database
+3,n-job-002,2026-08-22 08:05:00,ERROR,Authentication failure on node host

@@ -1,0 +1,7 @@
+key,category,label,value,sortOrder
+status.completed,status,Completed,"{""hex"":""#22c55e"",""aliases"":[""ok"",""completed"",""success""]}",1
+status.failed,status,Failed,"{""hex"":""#f43f5e"",""aliases"":[""failed"",""danger"",""error""]}",4
+layout.vGap,layout,Vertical Gap,50,1
+layout.hGap,layout,Horizontal Gap,40,2
+relation.selectedColor,relation,Selected Node Color,#4f46e5,1
+business.dayStartHour,business,Day Start Hour,0,1

@@ -390,3 +390,24 @@
 .react-flow__edge {
   pointer-events: none !important;
 }
+.react-flow__handle {
+  border-radius: 0 !important;
+  width: 14px !important;
+  height: 10px !important;
+  background-color: var(--border-strong) !important;
+  border: none !important;
+  transition: background-color 0.15s ease;
+}
+.react-flow__handle:hover {
+  background-color: var(--primary) !important;
+}
+.react-flow__handle-top {
+  top: 0 !important;
+  transform: translate(-50%, -100%) !important; /* Point (bottom edge) touches top border */
+  clip-path: polygon(50% 100%, 0% 0%, 100% 0%) !important; /* Downward triangle */
+}
+.react-flow__handle-bottom {
+  bottom: 0 !important;
+  transform: translate(-50%, 100%) !important; /* Base (top edge) touches bottom border */
+  clip-path: polygon(50% 100%, 0% 0%, 100% 0%) !important; /* Downward triangle */
+}

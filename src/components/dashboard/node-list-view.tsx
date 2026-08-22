@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, GripVertical, Download, Columns3 } from 'lucide-react'
+import { ChevronDown, ChevronUp, GripVertical, Download, Columns3 } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 import type { FieldDefinition } from '@/lib/types'
 import { formatFieldValue, statusHex, statusBadgeStyle, isShowable } from '@/lib/fields'
@@ -172,7 +172,7 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
           <button
             type="button"
             onClick={onExport}
-            className="inline-flex items-center gap-1.5 h-[var(--control-h)] px-2 text-xs font-medium border border-border-strong bg-surface hover:bg-surface-hover text-text"
+            className="inline-flex items-center gap-1.5 h-[var(--control-h)] px-2 text-xs font-medium border border-transparent rounded bg-transparent hover:bg-surface-hover text-text transition-colors"
           >
             <Download size={12} strokeWidth={1.5} />
             Export CSV
@@ -181,8 +181,10 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
             type="button"
             onClick={() => setShowColumnChooser((v) => !v)}
             className={cn(
-              'inline-flex items-center gap-1.5 h-[var(--control-h)] px-2 text-xs font-medium border bg-surface hover:bg-surface-hover text-text',
-              showColumnChooser ? 'border-primary text-primary' : 'border-border-strong',
+              'inline-flex items-center gap-1.5 h-[var(--control-h)] px-2 text-xs font-medium border border-transparent rounded transition-colors',
+              showColumnChooser
+                ? 'bg-primary/10 text-primary'
+                : 'bg-transparent text-text hover:bg-surface-hover',
             )}
           >
             <Columns3 size={12} strokeWidth={1.5} />
@@ -240,7 +242,7 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
                     <span>{col.label}</span>
                     {sortBy === col.key && (
                       <span className="text-text">
-                        {sortDir === 'asc' ? <ChevronDown size={10} strokeWidth={1.5} /> : <ChevronRight size={10} strokeWidth={1.5} />}
+                        {sortDir === 'asc' ? <ChevronDown size={11} strokeWidth={2} /> : <ChevronUp size={11} strokeWidth={2} />}
                       </span>
                     )}
                   </button>

@@ -15,8 +15,6 @@
  */
 
 import { db } from '../src/lib/db'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 // ─── Default app config rows ────────────────────────────────────────────────
 
@@ -102,57 +100,6 @@ const SCHEDULE_CONFIGS_SEED = [
   },
 ]
 
-// ─── CSV parser (RFC 4180 compliant) ────────────────────────────────────────
-
-function parseCSV(text: string): string[][] {
-  // Strip UTF-8 BOM
-  const cleaned = text.replace(/^\uFEFF/, '')
-  const rows: string[][] = []
-  let row: string[] = []
-  let field = ''
-  let inQuotes = false
-
-  for (let i = 0; i < cleaned.length; i++) {
-    const char = cleaned[i]
-    if (inQuotes) {
-      if (char === '"') {
-        if (cleaned[i + 1] === '"') {
-          field += '"'
-          i++
-        } else {
-          inQuotes = false
-        }
-      } else {
-        field += char
-      }
-    } else {
-      if (char === '"') {
-        inQuotes = true
-      } else if (char === ',') {
-        row.push(field)
-        field = ''
-      } else if (char === '\r' || char === '\n') {
-        if (field !== '' || row.length > 0) {
-          row.push(field)
-          rows.push(row)
-          row = []
-          field = ''
-        }
-        if (char === '\r' && cleaned[i + 1] === '\n') i++
-      } else {
-        field += char
-      }
-    }
-  }
-  if (field !== '' || row.length > 0) {
-    row.push(field)
-    rows.push(row)
-  }
-  return rows
-}
-
-// ─── Main seed ────────────────────────────────────────────────────────────
-
 async function main() {
   console.log('Seeding Alpha VW database...')
 
@@ -220,88 +167,6 @@ async function main() {
     update: {},
   })
   console.log('Seeded module + default viewpoint')
-
-  // 6. Sample banking nodes (CSV)
-  const nodesCsvPath = resolve(__dirname, '..', 'sample_nodes.csv')
-  const nodesCsv = readFileSync(nodesCsvPath, 'utf-8')
-  const nodesParsed = parseCSV(nodesCsv)
-  const nodesHeader = nodesParsed[0]
-  const nodesRows = nodesParsed.slice(1)
-
-  // FIXED_NAV_NODE_COLUMNS that go into the nav_nodes table proper
-  const FIXED_COLS = ['id', 'label', 'kind', 'parent_id', 'node_kind', 'status', 'host', 'runs', 'sort_order', 'schedule']
-
-  for (const row of nodesRows) {
-    if (!row[0]) continue
-    const cells = nodesHeader.reduce<Record<string, string>>((acc, h, i) => {
-      acc[h] = row[i] ?? ''
-      return acc
-    }, {})
-
-    const id = cells.id
-    if (!id) continue
-
-    // Fixed columns
-    const navData: Record<string, unknown> = {
-      id,
-      label: cells.label,
-      kind: cells.kind,
-      parentId: cells.parent_id || null,
-      nodeKind: cells.node_kind || null,
-      status: cells.status || null,
-      host: cells.host || null,
-      runs: cells.runs ? Number(cells.runs) : null,
-      sortOrder: cells.sort_order ? Number(cells.sort_order) : 0,
-    }
-
-    // Extra columns → JSON blob in `data`
-    const extra: Record<string, string> = {}
-    for (const [k, v] of Object.entries(cells)) {
-      if (FIXED_COLS.includes(k)) continue
-      if (v !== '' && v != null) extra[k] = v
-    }
-    navData.data = Object.keys(extra).length > 0 ? JSON.stringify(extra) : null
-
-    // EAV: write schedule to node_field_values
-    await db.navNode.upsert({
-      where: { id },
-      create: navData as never,
-      update: {},
-    })
-
-    // Write schedule to node_field_values
-    if (cells.schedule) {
-      await db.nodeFieldValue.upsert({
-        where: { nodeId_fieldKey: { nodeId: id, fieldKey: 'schedule' } },
-        create: { nodeId: id, fieldKey: 'schedule', fieldValue: cells.schedule },
-        update: { fieldValue: cells.schedule },
-      })
-    }
-  }
-  console.log(`Seeded ${nodesRows.length} nav_nodes (from CSV)`)
-
-  // 7. Sample banking edges (CSV)
-  const edgesCsvPath = resolve(__dirname, '..', 'sample_edges.csv')
-  const edgesCsv = readFileSync(edgesCsvPath, 'utf-8')
-  const edgesParsed = parseCSV(edgesCsv)
-  const edgesHeader = edgesParsed[0]
-  const edgesRows = edgesParsed.slice(1)
-
-  for (const row of edgesRows) {
-    if (!row[0]) continue
-    const cells = edgesHeader.reduce<Record<string, string>>((acc, h, i) => {
-      acc[h] = row[i] ?? ''
-      return acc
-    }, {})
-
-    if (!cells.id || !cells.source || !cells.target) continue
-    await db.edge.upsert({
-      where: { id: cells.id },
-      create: { id: cells.id, source: cells.source, target: cells.target },
-      update: {},
-    })
-  }
-  console.log(`Seeded ${edgesRows.length} edges (from CSV)`)
 
   console.log('Seed complete!')
 }

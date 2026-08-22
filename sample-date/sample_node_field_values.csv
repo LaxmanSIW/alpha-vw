@@ -1,0 +1,5 @@
+nodeId,fieldKey,fieldValue
+n-job-001,owner,Jane Doe
+n-job-001,criticality,High
+n-job-002,owner,John Smith
+n-job-002,criticality,Medium

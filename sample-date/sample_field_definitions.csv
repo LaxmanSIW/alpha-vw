@@ -1,0 +1,4 @@
+key,label,sectionTitle,role,format,sortOrder,isProtected,showOnCard,showInDetails,isActive
+owner,Business Owner,Identity,detail,text,10,0,Y,Y,1
+criticality,Criticality Rating,Risk,subtitle,text,11,0,Y,Y,1
+last_execution_time,Last Execution Duration,Performance,detail,text,12,0,N,Y,1
