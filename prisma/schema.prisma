@@ -1,0 +1,179 @@
+// Prisma schema for Alpha VW — Enterprise Batch Topology & Job Monitoring System
+// All tables mapped from the original SQLite schema, with proper indexes added.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Modules ─────────────────────────────────────────────────────────────────
+// Top-level switcher (e.g. "Architecture"). Selecting a module swaps the
+// entire viewpoint set shown in the tabs.
+
+model Module {
+  id    String @id
+  label String
+
+  viewpoints Viewpoint[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("modules")
+}
+
+// ─── Viewpoints ──────────────────────────────────────────────────────────────
+// A saved "lens" over the topology: status filter, grouping, sort, scope.
+
+model Viewpoint {
+  id           String @id
+  moduleId     String
+  label        String
+  description  String?
+  folder       String?
+  jobCount     Int?
+  scope        String @default("Public") // "Public" | "Private"
+  filterStatus String @default("All") // "All" | status alias
+  grouping     String @default("Folder")
+  sortBy       String @default("label")
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId])
+  @@map("viewpoints")
+}
+
+// ─── Field definitions (EAV schema) ─────────────────────────────────────────
+// Defines which fields exist on a node, how they're labeled, where they show
+// (card vs details), and their format (text / mono / status).
+
+model FieldDefinition {
+  key            String  @id
+  label          String
+  sectionTitle   String? @default("Metadata")
+  role           String  @default("detail") // title | subtitle | detail | none
+  format         String  @default("text") // text | mono | status
+  sortOrder      Float   @default(0)
+  isProtected    Int     @default(0)
+  showOnCard     String  @default("Y")
+  showInDetails  String  @default("Y")
+  isActive       Int     @default(1)
+
+  values NodeFieldValue[]
+
+  @@map("field_definitions")
+}
+
+// ─── Node field values (EAV store) ───────────────────────────────────────────
+// Per-node custom field values. Composite primary key on (nodeId, fieldKey).
+
+model NodeFieldValue {
+  nodeId    String
+  fieldKey  String
+  fieldValue String?
+
+  field FieldDefinition @relation(fields: [fieldKey], references: [key], onDelete: Cascade)
+
+  @@id([nodeId, fieldKey])
+  @@index([fieldKey])
+  @@map("node_field_values")
+}
+
+// ─── Nav nodes (the tree) ────────────────────────────────────────────────────
+// Folders (containers) and items (jobs). `data` is a JSON blob for anything
+// not in the fixed columns. Field values for EAV fields live in
+// NodeFieldValue.
+
+model NavNode {
+  id        String  @id
+  label     String
+  kind      String  // "folder" | "item"
+  parentId  String?
+  nodeKind   String? // business type: Source, Process, Reporter, etc.
+  status    String?
+  host      String?
+  runs      Int?
+  sortOrder Int    @default(0)
+  data      String? // JSON blob of extra fields
+
+  parent   NavNode?  @relation("NavTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children NavNode[] @relation("NavTree")
+
+  logs NodeLog[]
+
+  @@index([parentId])
+  @@index([kind])
+  @@index([sortOrder])
+  @@map("nav_nodes")
+}
+
+// ─── Edges (dependencies) ────────────────────────────────────────────────────
+
+model Edge {
+  id     String @id
+  source String
+  target String
+
+  @@index([source])
+  @@index([target])
+  @@map("edges")
+}
+
+// ─── Node logs ───────────────────────────────────────────────────────────────
+
+model NodeLog {
+  id        Int    @id @default(autoincrement())
+  nodeId    String
+  timestamp String
+  level     String // INFO | WARN | ERROR
+  message   String
+
+  node NavNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@map("node_logs")
+}
+
+// ─── Calendars (Rule-Based Calendar engine) ─────────────────────────────────
+
+model Calendar {
+  id       String @id
+  name     String @unique
+  workdays String @default("[1,2,3,4,5]") // JSON array of weekday numbers
+  holidays String @default("[]") // JSON array of YYYY-MM-DD strings
+
+  @@map("calendars")
+}
+
+// ─── Schedule configs (RBC) ─────────────────────────────────────────────────
+
+model ScheduleConfig {
+  id                  String @id
+  name                String @unique
+  configData          String // JSON
+  lastEvaluatedDate   String?
+  isScheduledToday    String @default("N/A") // "Yes" | "No" | "N/A"
+
+  @@map("schedule_configs")
+}
+
+// ─── App config (key/value pairs grouped by category) ───────────────────────
+// Stores status definitions, layout, relation colors, business date, etc.
+
+model AppConfig {
+  key       String  @id
+  category  String
+  label     String
+  value     String
+  sortOrder Int    @default(0)
+
+  @@index([category])
+  @@map("app_config")
+}

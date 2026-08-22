@@ -1,0 +1,389 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@xyflow/react/dist/style.css";
+
+/* ==========================================================================
+   Alpha VW — Enterprise design tokens
+   Flat design system: zero radius, zero shadows, two-tone surfaces.
+   Theme via [data-theme="light"|"dark"], density via [data-density="compact"|"comfortable"].
+   ========================================================================== */
+
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+/* ─── 1. Runtime values (CSS variables) ────────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  /* Surfaces — three flat tone steps; no fourth (use a border instead). */
+  --canvas: #f4f6f8;
+  --surface: #ffffff;
+  --surface-sunken: #edf0f3;
+  --surface-hover: #e8ecf0;
+  --surface-selected: #e4eaf6;
+
+  /* Borders */
+  --border: #d4d8de;
+  --border-strong: #868f9a;
+
+  /* Text */
+  --text: #111418;
+  --text-secondary: #4a5560;
+  --text-muted: #67727f;
+  --text-inverse: #ffffff;
+
+  /* Brand */
+  --primary: #4f46e5; /* indigo-600 — selection highlight */
+  --primary-fg: #ffffff;
+  --primary-hover: #4338ca;
+  --primary-active: #3730a3;
+  --accent: #0e8493; /* teal — informational */
+  --accent-hover: #0a6a78;
+
+  /* Status (foreground + flat tinted fill) */
+  --success-fg: #0e6b40;
+  --success-bg: #e3f3ea;
+  --warning-fg: #8a5a00;
+  --warning-bg: #fdf1da;
+  --danger-fg: #a81e1a;
+  --danger-bg: #fbe6e5;
+  --info-fg: #4f46e5;
+  --info-bg: #e4eaf6;
+
+  /* Focus — a real outline, never a box-shadow ring */
+  --focus: #4f46e5;
+
+  /* Categorical chart series */
+  --chart-1: #4f46e5;
+  --chart-2: #0891b2;
+  --chart-3: #cc6e00;
+  --chart-4: #6b4fa8;
+  --chart-5: #5a6672;
+  --chart-6: #a8123e;
+  --chart-grid: #e4e7eb;
+  --chart-axis: #67727f;
+
+  /* Flat scrim for modals — opacity only, no blur */
+  --scrim: rgb(17 20 24 / 0.55);
+}
+
+[data-theme="dark"] {
+  --canvas: #0d1116;
+  --surface: #151a21;
+  --surface-sunken: #1d242d;
+  --surface-hover: #202832;
+  --surface-selected: #14203a;
+
+  --border: #2a333e;
+  --border-strong: #63707c;
+
+  --text: #e8ecf1;
+  --text-secondary: #a8b4c0;
+  --text-muted: #7a8794;
+  --text-inverse: #0d1116;
+
+  --primary: #818cf8; /* indigo-400 — lightened for dark surfaces */
+  --primary-fg: #0d1116;
+  --primary-hover: #a5b0fc;
+  --primary-active: #c4ccfe;
+  --accent: #2bc8d0;
+  --accent-hover: #4fd6dd;
+
+  --success-fg: #4ecb8a;
+  --success-bg: #102a1d;
+  --warning-fg: #e0a93b;
+  --warning-bg: #2b2113;
+  --danger-fg: #f0776f;
+  --danger-bg: #2e1615;
+  --info-fg: #818cf8;
+  --info-bg: #14203a;
+
+  --focus: #818cf8;
+
+  --chart-1: #818cf8;
+  --chart-2: #2bc8d0;
+  --chart-3: #f5a03c;
+  --chart-4: #a98be0;
+  --chart-5: #a8b4c0;
+  --chart-6: #e8637f;
+  --chart-grid: #232b35;
+  --chart-axis: #7a8794;
+
+  --scrim: rgb(0 0 0 / 0.65);
+}
+
+/* ─── 2. Density ────────────────────────────────────────────────────────── */
+
+:root,
+[data-density="compact"] {
+  --control-h: 28px;
+  --row-h: 32px;
+  --icon-btn: 28px;
+  --text-size: 13px;
+  --text-size-sm: 12px;
+  --text-size-xs: 11px;
+  --gap: 8px;
+  --pad-x: 8px;
+  --pad-y: 4px;
+}
+
+[data-density="comfortable"] {
+  --control-h: 34px;
+  --row-h: 40px;
+  --icon-btn: 34px;
+  --text-size: 14px;
+  --text-size-sm: 13px;
+  --text-size-xs: 11px;
+  --gap: 12px;
+  --pad-x: 12px;
+  --pad-y: 8px;
+}
+
+/* Shell chrome — fixed regardless of density */
+:root {
+  --header-h: 48px;
+  --divider-h: 3px;
+  --viewtabs-h: 34px;
+  --actionbar-h: 36px;
+  --footer-h: 24px;
+  --rail-w: 32px;
+  --panel-w: 260px;
+  --panel-min-w: 180px;
+  --panel-max-w: 560px;
+}
+
+/* ─── 3. Tailwind theme binding ─────────────────────────────────────────── */
+
+@theme inline {
+  --color-background: var(--canvas);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--border-strong);
+  --color-ring: var(--focus);
+
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverse: var(--text-inverse);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-fg);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+
+  --color-success-fg: var(--success-fg);
+  --color-success-bg: var(--success-bg);
+  --color-warning-fg: var(--warning-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-info-fg: var(--info-fg);
+  --color-info-bg: var(--info-bg);
+
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--text-muted);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--text);
+  --color-destructive: var(--danger-fg);
+  --color-destructive-foreground: var(--danger-bg);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+
+  --color-scrim: var(--scrim);
+
+  --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --text-xs: var(--text-size-xs);
+  --text-sm: var(--text-size-sm);
+  --text-base: var(--text-size);
+
+  --spacing-header: var(--header-h);
+  --spacing-divider: var(--divider-h);
+  --spacing-viewtabs: var(--viewtabs-h);
+  --spacing-actionbar: var(--actionbar-h);
+  --spacing-footer: var(--footer-h);
+  --spacing-rail: var(--rail-w);
+  --spacing-panel: var(--panel-w);
+  --spacing-control: var(--control-h);
+  --spacing-row: var(--row-h);
+  --spacing-icon-btn: var(--icon-btn);
+
+  /* Flat mandate — zero radius and shadow everywhere */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
+  --inset-shadow-2xs: none;
+  --inset-shadow-xs: none;
+  --inset-shadow-sm: none;
+  --drop-shadow-xs: none;
+  --drop-shadow-sm: none;
+  --drop-shadow-md: none;
+  --drop-shadow-lg: none;
+  --drop-shadow-xl: none;
+  --drop-shadow-2xl: none;
+}
+
+/* ─── 4. Base layer ─────────────────────────────────────────────────────── */
+
+@layer base {
+  /* Belt-and-braces: catches raw CSS and third-party stylesheets (React Flow, etc.) */
+  * {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    color: var(--text);
+    background-color: var(--canvas);
+  }
+
+  body {
+    margin: 0;
+    font-size: var(--text-size);
+    background-color: var(--canvas);
+    color: var(--text);
+    /* Dashboards never scroll the page; only panes do */
+    overflow: hidden;
+  }
+
+  /* Tabular figures everywhere — digits sit in columns and refresh on tick */
+  body,
+  table,
+  input,
+  select,
+  textarea,
+  button {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.011em;
+    color: var(--text);
+  }
+
+  /* Real outline, offset so it reads against the control's own border */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Square flat scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 2px solid var(--canvas);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  ::-webkit-scrollbar-corner { background: transparent; }
+}
+
+/* ─── 5. Utilities ──────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Proportional figures for prose */
+  .pnum {
+    font-variant-numeric: proportional-nums;
+    font-feature-settings: "pnum" 1;
+  }
+
+  /* Uppercase micro-label */
+  .label-caps {
+    font-size: var(--text-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Vertical text for collapsed side rails */
+  .text-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  /* Hide scrollbar but keep scroll */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ─── 6. React Flow flat overrides ──────────────────────────────────────── */
+
+.react-flow {
+  --xy-edge-stroke-default: var(--border-strong);
+  --xy-edge-stroke-selected-default: var(--primary);
+  --xy-edge-stroke-width-default: 1;
+  --xy-background-color-dots: var(--border-strong);
+  --xy-controls-button-background-color-default: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-hover);
+  --xy-controls-button-color-default: var(--text);
+  --xy-controls-button-color-hover: var(--text);
+  --xy-controls-button-border-color-default: var(--border-strong);
+  --xy-minimap-background-color-default: var(--surface-sunken);
+  --xy-minimap-mask-background-color-default: var(--scrim);
+  --xy-minimap-node-background-color-default: var(--border-strong);
+}
+
+.react-flow__controls-button {
+  border-bottom: 1px solid var(--border-strong) !important;
+  border-radius: 0 !important;
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+.react-flow__minimap {
+  border: 1px solid var(--border-strong) !important;
+}
+.react-flow__attribution {
+  display: none !important;
+}

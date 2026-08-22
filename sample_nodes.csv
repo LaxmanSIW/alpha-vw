@@ -1,0 +1,113 @@
+id,label,kind,parent_id,node_kind,status,host,runs,sort_order,schedule
+n-core-banking,"Core Banking System",folder,,,,,,1,
+n-cards-retail,"Cards & Retail Banking",folder,,,,,,2,
+n-risk-compliance,"Risk, Treasury & AML",folder,,,,,,3,
+n-gl-reporting,"GL & EOD Financial Reporting",folder,,,,,,4,
+n-payments,"Payment Clearing & SWIFT",folder,n-core-banking,,,,,1,
+n-accounts,"Accounts & Deposits Batch",folder,n-core-banking,,,,,2,
+n-cards-batch,"Credit Card & ATM Clearing",folder,n-cards-retail,,,,,1,
+n-loans,"Loan & Mortgage Processing",folder,n-cards-retail,,,,,2,
+n-aml-fraud,"AML Compliance & Fraud Monitoring",folder,n-risk-compliance,,,,,1,
+n-treasury-risk,"Treasury & Liquidity Risk",folder,n-risk-compliance,,,,,2,
+n-gl-accounting,"General Ledger Accounting",folder,n-gl-reporting,,,,,1,
+n-eod-reporting,"Regulatory & EOD Reporting",folder,n-gl-reporting,,,,,2,
+n-job-001,"SWIFT Inbound Message Parser",item,n-payments,Source,Completed,pay-node-01,24500,1,DAILY_PROD_RUN
+n-job-002,"ISO20022 XML Message Validator",item,n-payments,Process,Completed,pay-node-01,24498,2,DAILY_PROD_RUN
+n-job-003,"Sanction Screening & OFAC Matcher",item,n-payments,Service,Executing,sec-node-02,18200,3,DAILY_PROD_RUN
+n-job-004,"FEDWire Clearing Gateway",item,n-payments,Service,Wait for Event,pay-node-02,12100,4,DAILY_PROD_RUN
+n-job-005,"ACH Direct Debit Batch Worker",item,n-payments,Process,Completed,pay-node-03,9400,5,DAILY_PROD_RUN
+n-job-006,"SEPA Credit Transfer Engine",item,n-payments,Process,Completed,pay-node-03,15300,6,DAILY_PROD_RUN
+n-job-007,"Realtime Gross Settlement (RTGS)",item,n-payments,Process,Executing,pay-node-04,31200,7,DAILY_PROD_RUN
+n-job-008,"Cross-Border FX Liquidity Hub",item,n-payments,Process,Wait for Event,fx-node-01,8100,8,DAILY_PROD_RUN
+n-job-009,"High-Value Wire Router",item,n-payments,Service,Completed,pay-node-02,6700,9,DAILY_PROD_RUN
+n-job-010,"Payment Status & Callback Notifier",item,n-payments,Sink,Completed,pay-edge-01,42000,10,DAILY_PROD_RUN
+n-job-011,"Nostro/Vostro Reconciler",item,n-payments,Process,Wait for Event,pay-node-05,3400,11,END_OF_MONTH_RUN
+n-job-012,"CHIPS Netting Batch Engine",item,n-payments,Process,Completed,pay-node-04,18900,12,DAILY_PROD_RUN
+n-job-013,"Instant Payment Confirmation Service",item,n-payments,Service,Completed,pay-edge-02,65000,13,DAILY_PROD_RUN
+n-job-014,"Standing Order Execution Job",item,n-payments,Process,Executing,pay-node-05,14200,14,DAILY_PROD_RUN
+n-job-015,"Core Banking Deposit Ingest",item,n-accounts,Source,Completed,core-db-01,89000,15,DAILY_PROD_RUN
+n-job-016,"Daily Interest Calculation Engine",item,n-accounts,Process,Completed,core-app-01,88950,16,DAILY_PROD_RUN
+n-job-017,"Overdraft Limit & Protection Check",item,n-accounts,Process,Executing,core-app-02,88900,17,DAILY_PROD_RUN
+n-job-018,"Dormant Account Sweeper",item,n-accounts,Process,Wait for Event,core-app-02,30,18,END_OF_MONTH_RUN
+n-job-019,"EOD Account Balance Snapshot",item,n-accounts,Store,Completed,core-db-02,365,19,DAILY_PROD_RUN
+n-job-020,"Monthly Account Fee Deductor",item,n-accounts,Process,Wait for Event,core-app-03,12,20,END_OF_MONTH_RUN
+n-job-021,"Multi-Currency Revaluation Job",item,n-accounts,Process,Completed,fx-node-01,365,21,DAILY_PROD_RUN
+n-job-022,"Customer Statement PDF Generator",item,n-accounts,Sink,Wait for Event,doc-node-01,12,22,END_OF_MONTH_RUN
+n-job-023,"Escrow Account Balance Sync",item,n-accounts,Process,Completed,core-app-03,365,23,DAILY_PROD_RUN
+n-job-024,"Tax Withholding (1099/FATCA)",item,n-accounts,Process,Wait for Event,tax-node-01,4,24,END_OF_MONTH_RUN
+n-job-025,"Certificate of Deposit Matures Sweeper",item,n-accounts,Process,Completed,core-app-01,1200,25,DAILY_PROD_RUN
+n-job-026,"Sweep Account Re-Balancing Job",item,n-accounts,Process,Executing,core-app-02,3650,26,DAILY_PROD_RUN
+n-job-027,"Passbook & E-Statement Archiver",item,n-accounts,Sink,Completed,doc-node-02,12,27,END_OF_MONTH_RUN
+n-job-028,"Visa Authorization Feed Ingest",item,n-cards-batch,Source,Completed,card-net-01,145000,28,DAILY_PROD_RUN
+n-job-029,"Mastercard Clearing File Sync",item,n-cards-batch,Source,Completed,card-net-02,138000,29,DAILY_PROD_RUN
+n-job-030,"Interchange Fee & Rebate Calc",item,n-cards-batch,Process,Executing,card-app-01,137500,30,DAILY_PROD_RUN
+n-job-031,"ATM Network Settlement Batch",item,n-cards-batch,Process,Completed,atm-node-01,52000,31,DAILY_PROD_RUN
+n-job-032,"POS Merchant Settlement Worker",item,n-cards-batch,Process,Executing,card-app-02,98000,32,DAILY_PROD_RUN
+n-job-033,"Card Rewards Point Accumulator",item,n-cards-batch,Process,Completed,card-app-03,120000,33,DAILY_PROD_RUN
+n-job-034,"Chargeback & Dispute Engine",item,n-cards-batch,Service,Wait for Event,card-app-03,4500,34,DAILY_PROD_RUN
+n-job-035,"Credit Card Billing Cycle Batch",item,n-cards-batch,Process,Wait for Event,card-app-01,12,35,END_OF_MONTH_RUN
+n-job-036,"Stolen Card Lock & Blacklist Sync",item,n-cards-batch,Service,Completed,sec-node-01,500000,36,DAILY_PROD_RUN
+n-job-037,"Card Limit Restorer",item,n-cards-batch,Process,Completed,card-app-02,85000,37,DAILY_PROD_RUN
+n-job-038,"Amex Transaction Settlement Processor",item,n-cards-batch,Source,Completed,card-net-03,67000,38,DAILY_PROD_RUN
+n-job-039,"EMV Chip Tokenization Service",item,n-cards-batch,Service,Completed,card-net-01,340000,39,DAILY_PROD_RUN
+n-job-040,"Card Late Fee Penalty Calculator",item,n-cards-batch,Process,Wait for Event,card-app-01,12,40,END_OF_MONTH_RUN
+n-job-041,"Mortgage Loan EMI Scheduler",item,n-loans,Process,Completed,loan-node-01,28000,41,DAILY_PROD_RUN
+n-job-042,"Auto Loan Repayment Collector",item,n-loans,Process,Completed,loan-node-01,34000,42,DAILY_PROD_RUN
+n-job-043,"Personal Loan Delinquency Tracker",item,n-loans,Process,Executing,loan-node-02,12000,43,DAILY_PROD_RUN
+n-job-044,"Collateral & Property Re-Valuation",item,n-loans,Process,Wait for Event,loan-node-03,4,44,END_OF_MONTH_RUN
+n-job-045,"Credit Bureau Score Sync (Experian)",item,n-loans,Service,Completed,ext-gateway-01,19000,45,DAILY_PROD_RUN
+n-job-046,"Amortization Schedule Generator",item,n-loans,Service,Completed,loan-node-02,8500,46,DAILY_PROD_RUN
+n-job-047,"Loan Provisioning (IFRS 9 Expected Loss)",item,n-loans,Process,Wait for Event,risk-node-01,12,47,END_OF_MONTH_RUN
+n-job-048,"Commercial Line of Credit Drawdown",item,n-loans,Process,Completed,loan-node-03,4200,48,DAILY_PROD_RUN
+n-job-049,"Student Loan Subsidy Reconciler",item,n-loans,Process,Completed,loan-node-01,1500,49,DAILY_PROD_RUN
+n-job-050,"Loan Prepayment Penalty Evaluator",item,n-loans,Process,Executing,loan-node-02,920,50,DAILY_PROD_RUN
+n-job-051,"SBA Government Guarantee Auditor",item,n-loans,Process,Wait for Event,loan-node-03,12,51,END_OF_MONTH_RUN
+n-job-052,"Loan Write-Off & Recovery Scraper",item,n-loans,Process,Completed,loan-node-02,365,52,DAILY_PROD_RUN
+n-job-053,"AML Transaction Log Scraper",item,n-aml-fraud,Source,Completed,aml-node-01,520000,53,DAILY_PROD_RUN
+n-job-054,"PEP & Sanction Screening (Dow Jones)",item,n-aml-fraud,Process,Completed,aml-node-01,519000,54,DAILY_PROD_RUN
+n-job-055,"KYC Expiry & Document Re-Verifier",item,n-aml-fraud,Process,Executing,aml-node-02,4500,55,DAILY_PROD_RUN
+n-job-056,"Realtime Fraud Pattern Detector (ML)",item,n-aml-fraud,Service,Completed,ai-cluster-01,950000,56,DAILY_PROD_RUN
+n-job-057,"Suspicious Activity Report (SAR) Generator",item,n-aml-fraud,Sink,Wait for Event,aml-node-03,320,57,DAILY_PROD_RUN
+n-job-058,"Currency Transaction Report (CTR > $10k)",item,n-aml-fraud,Sink,Completed,aml-node-03,1450,58,DAILY_PROD_RUN
+n-job-059,"High-Risk Country Transaction Alerting",item,n-aml-fraud,Service,Completed,aml-node-02,89000,59,DAILY_PROD_RUN
+n-job-060,"Trade-Based AML Anomaly Detector",item,n-aml-fraud,Process,Executing,aml-node-01,12000,60,DAILY_PROD_RUN
+n-job-061,"Beneficial Ownership (BO) Lookup Sync",item,n-aml-fraud,Service,Completed,aml-node-02,7800,61,DAILY_PROD_RUN
+n-job-062,"Cryptocurrency Wallet Risk Scoring",item,n-aml-fraud,Process,Wait for Event,ai-cluster-02,3400,62,DAILY_PROD_RUN
+n-job-063,"FinCEN 314(a) Information Request Matcher",item,n-aml-fraud,Process,Completed,aml-node-03,52,63,DAILY_PROD_RUN
+n-job-064,"Layering Transaction Graph Analyzer",item,n-aml-fraud,Process,Executing,ai-cluster-01,14000,64,DAILY_PROD_RUN
+n-job-065,"Value-at-Risk (VaR) Market Simulator",item,n-treasury-risk,Process,Completed,hpc-node-01,365,65,DAILY_PROD_RUN
+n-job-066,"Liquidity Coverage Ratio (LCR) Calc",item,n-treasury-risk,Process,Completed,risk-node-02,365,66,DAILY_PROD_RUN
+n-job-067,"Net Stable Funding Ratio (NSFR)",item,n-treasury-risk,Process,Wait for Event,risk-node-02,12,67,END_OF_MONTH_RUN
+n-job-068,"Interest Rate Sensitivity Stress Test",item,n-treasury-risk,Process,Completed,hpc-node-02,52,68,DAILY_PROD_RUN
+n-job-069,"FX Open Position & Swap Evaluator",item,n-treasury-risk,Process,Executing,fx-node-02,2400,69,DAILY_PROD_RUN
+n-job-070,"Yield Curve Calibration Engine",item,n-treasury-risk,Service,Completed,hpc-node-01,8700,70,DAILY_PROD_RUN
+n-job-071,"Capital Adequacy Ratio (CAR) Evaluator",item,n-treasury-risk,Process,Wait for Event,risk-node-03,4,71,END_OF_MONTH_RUN
+n-job-072,"Collateral Haircut Optimizer",item,n-treasury-risk,Process,Completed,hpc-node-02,365,72,DAILY_PROD_RUN
+n-job-073,"Credit Valuation Adjustment (CVA) Engine",item,n-treasury-risk,Process,Executing,hpc-node-01,250,73,DAILY_PROD_RUN
+n-job-074,"Interbank Repo Rate Fixer",item,n-treasury-risk,Service,Completed,risk-node-01,365,74,DAILY_PROD_RUN
+n-job-075,"Intraday Liquidity Buffer Monitor",item,n-treasury-risk,Process,Completed,risk-node-02,8760,75,DAILY_PROD_RUN
+n-job-076,"Counterparty Default Probability Sync",item,n-treasury-risk,Process,Wait for Event,risk-node-03,52,76,DAILY_PROD_RUN
+n-job-077,"Subledger Batch Transaction Poster",item,n-gl-accounting,Source,Completed,gl-db-01,365,77,DAILY_PROD_RUN
+n-job-078,"General Ledger Trial Balance Engine",item,n-gl-accounting,Process,Completed,gl-app-01,365,78,DAILY_PROD_RUN
+n-job-079,"Intercompany Journal Elimination",item,n-gl-accounting,Process,Executing,gl-app-01,12,79,END_OF_MONTH_RUN
+n-job-080,"Fixed Assets Depreciation Calculator",item,n-gl-accounting,Process,Wait for Event,gl-app-02,12,80,END_OF_MONTH_RUN
+n-job-081,"Tax Provisioning & Accrual Worker",item,n-gl-accounting,Process,Completed,gl-app-02,365,81,DAILY_PROD_RUN
+n-job-082,"Period-End Financial Book Close",item,n-gl-accounting,Process,Wait for Event,gl-app-01,12,82,END_OF_MONTH_RUN
+n-job-083,"Suspense Account Clearance Check",item,n-gl-accounting,Process,Completed,gl-app-03,365,83,DAILY_PROD_RUN
+n-job-084,"Unposted Journal Entry Alerting",item,n-gl-accounting,Process,Completed,gl-app-03,365,84,DAILY_PROD_RUN
+n-job-085,"Foreign Exchange Translation Gain/Loss",item,n-gl-accounting,Process,Executing,gl-app-01,365,85,DAILY_PROD_RUN
+n-job-086,"Bad Debt Provision Allocator",item,n-gl-accounting,Process,Wait for Event,gl-app-02,12,86,END_OF_MONTH_RUN
+n-job-087,"Prepaid Expenses Amortizer",item,n-gl-accounting,Process,Completed,gl-app-03,12,87,END_OF_MONTH_RUN
+n-job-088,"Chart of Accounts Hierarchy Re-Indexer",item,n-gl-accounting,Service,Completed,gl-db-01,52,88,DAILY_PROD_RUN
+n-job-089,"Basel III Credit Risk Report Exporter",item,n-eod-reporting,Sink,Completed,rep-node-01,365,89,DAILY_PROD_RUN
+n-job-090,"FED FR Y-9C Financial Statement Gen",item,n-eod-reporting,Sink,Wait for Event,rep-node-01,4,90,END_OF_MONTH_RUN
+n-job-091,"FINRA OATS Trade Audit Trail Exporter",item,n-eod-reporting,Sink,Completed,rep-node-02,365,91,DAILY_PROD_RUN
+n-job-092,"SEC Form 10-K/10-Q Financial Exporter",item,n-eod-reporting,Sink,Wait for Event,rep-node-02,4,92,END_OF_MONTH_RUN
+n-job-093,"Executive MIS Daily KPI Dashboard Feed",item,n-eod-reporting,Sink,Completed,rep-node-03,365,93,DAILY_PROD_RUN
+n-job-094,"Cryptographic Audit Log Vault Sync",item,n-eod-reporting,Sink,Completed,vault-node-01,365,94,DAILY_PROD_RUN
+n-job-095,"EOD Master Batch Completion Signal",item,n-eod-reporting,Sink,Completed,rep-node-03,365,95,DAILY_PROD_RUN
+n-job-096,"Dodd-Frank Swap Data Repository (SDR) Export",item,n-eod-reporting,Sink,Completed,rep-node-01,365,96,DAILY_PROD_RUN
+n-job-097,"European Market Infrastructure Reg (EMIR) Sync",item,n-eod-reporting,Sink,Completed,rep-node-02,365,97,DAILY_PROD_RUN
+n-job-098,"Central Bank Statutory Reserve Report",item,n-eod-reporting,Sink,Wait for Event,rep-node-03,12,98,END_OF_MONTH_RUN
+n-job-099,"EOD Database Backup & Cold Storage",item,n-eod-reporting,Sink,Completed,vault-node-02,365,99,DAILY_PROD_RUN
+n-job-100,"Disaster Recovery Warm Standby Sync",item,n-eod-reporting,Sink,Completed,dr-node-01,8760,100,DAILY_PROD_RUN
