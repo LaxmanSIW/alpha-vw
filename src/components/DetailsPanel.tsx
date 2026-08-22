@@ -4,6 +4,7 @@ import { DETAILS_TABS, type DetailsTabDef } from '../config/viewConfig'
 import { statusTextStyle } from '../fields'
 import { fetchNodeLogs } from '../api/client'
 import type { FieldDefinition } from '../types'
+import Icon from './Icon'
 
 export interface DetailsPanelProps {
   selectedNode: Node | null
@@ -197,9 +198,11 @@ function buildDynamicNodeSections(node: Node, onOpenViewSchedule?: (nodeId: stri
           <button
             type="button"
             onClick={() => onOpenViewSchedule(node.id)}
-            className="ml-2 inline-flex items-center gap-1 text-[11px] bg-primary/10 text-primary border border-primary/30 px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
+            title="View Schedule Calendar Rules"
+            className="ml-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary border border-primary/40 bg-primary/10 px-2 py-0.5 hover:bg-primary/20 transition-colors"
           >
-            <span>📅 View Calendar</span>
+            <Icon name="calendar" size={12} />
+            <span>Calendar</span>
           </button>
         ) : undefined,
       })

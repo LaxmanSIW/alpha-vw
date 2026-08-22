@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { getRelationColor, getRelationOutlineWidth, type RelationKind } from '../graph'
-import { NODE_FIELDS, STATUS_KEY, RESERVED_KEYS } from '../config/viewConfig'
+import { NODE_FIELDS, STATUS_KEY, RESERVED_KEYS, getLayout } from '../config/viewConfig'
 import { formatFieldValue, statusHex, statusTextStyle } from '../fields'
 import type { FieldDefinition } from '../types'
 
@@ -92,18 +92,24 @@ function FlatNode({ id, data, selected }: NodeProps) {
     return SUBTITLE_FIELD ? [SUBTITLE_FIELD] : []
   }, [dynamicFieldDefs])
 
+  const LAYOUT = getLayout()
+
   return (
     <div
       className={[
-        'fed-node flex w-[190px] items-stretch border bg-surface',
+        'fed-node flex items-stretch border bg-surface overflow-hidden',
         isRelated ? '' : 'border-border-strong',
         selected && !isRelated ? 'border-primary' : '',
       ].join(' ')}
-      style={
-        relationColor
+      style={{
+        width: LAYOUT.nodeWidth,
+        ...(expanded
+          ? { minHeight: LAYOUT.nodeHeight }
+          : { height: LAYOUT.nodeCollapsedHeight, overflow: 'hidden' }),
+        ...(relationColor
           ? { borderColor: relationColor, outline: `${outlineWidth}px solid ${relationColor}` }
-          : undefined
-      }
+          : {}),
+      }}
     >
       <span aria-hidden="true" className="w-1 shrink-0" style={{ backgroundColor: stripe }} />
 

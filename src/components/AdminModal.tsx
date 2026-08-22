@@ -343,24 +343,26 @@ function downloadSampleCSV(targetTable: 'nav_nodes' | 'edges', customFieldDefs: 
 }
 
 function parseCSV(text: string): Record<string, unknown>[] {
-  const lines = text
+  const cleanText = text.replace(/^\uFEFF/, '')
+  const lines = cleanText
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
 
   if (lines.length < 2) return []
 
-  const headers = lines[0].split(',').map((h) => h.trim())
+  const headers = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''))
   const rows: Record<string, unknown>[] = []
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map((val) => val.trim())
+    const values = lines[i].split(',').map((val) => val.trim().replace(/^["']|["']$/g, ''))
     const row: Record<string, unknown> = {}
     headers.forEach((header, index) => {
+      if (!header) return
       const val = values[index] ?? ''
       if (val === '' || val === 'null' || val === 'undefined') {
         row[header] = null
-      } else if (!isNaN(Number(val)) && val !== '') {
+      } else if (!isNaN(Number(val)) && val !== '' && !val.includes('-')) {
         row[header] = Number(val)
       } else {
         row[header] = val
@@ -413,6 +415,7 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [isHelpGuideOpen, setIsHelpGuideOpen] = useState(false)
 
   const schemas = useMemo(() => getSchemas(dbFieldDefs), [dbFieldDefs])
   const isBulkTab = activeTab === 'bulk_csv'
@@ -602,12 +605,21 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
         {/* Header Bar */}
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-surface-sunken px-4">
           <div className="flex items-center gap-2">
-            <span className="flex size-6 items-center justify-center bg-primary text-xs font-semibold text-primary-fg">
+            <span className="flex size-6 items-center justify-center bg-primary text-xs font-semibold text-white">
               DB
             </span>
             <h2 className="text-base font-semibold tracking-tight text-text">
               Database Admin Management
             </h2>
+            <button
+              type="button"
+              onClick={() => setIsHelpGuideOpen(true)}
+              className="flex items-center gap-1 text-xs text-primary hover:underline ml-2 bg-primary/10 px-2 py-0.5 border border-primary/30"
+              title="Open Graphical Field & Schema Guide"
+            >
+              <Icon name="help-circle" size={13} />
+              <span>Field Guide & Help</span>
+            </button>
           </div>
           <button
             type="button"
@@ -653,7 +665,8 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                 : 'text-accent hover:bg-surface-hover',
             ].join(' ')}
           >
-            <span>📥 Bulk CSV Import</span>
+            <Icon name="upload" size={13} />
+            <span>Bulk CSV Import</span>
           </button>
         </div>
 
@@ -678,14 +691,16 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                     onClick={() => downloadSampleCSV('nav_nodes', dbFieldDefs)}
                     className="flex items-center gap-1.5 border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                   >
-                    <span>📥 Sample Nav Nodes CSV</span>
+                    <Icon name="download" size={12} />
+                    <span>Sample Nav Nodes CSV</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => downloadSampleCSV('edges')}
                     className="flex items-center gap-1.5 border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                   >
-                    <span>📥 Sample Edges CSV</span>
+                    <Icon name="download" size={12} />
+                    <span>Sample Edges CSV</span>
                   </button>
                 </div>
               </div>
@@ -759,9 +774,10 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                     type="button"
                     onClick={handleBulkImportSubmit}
                     disabled={importing}
-                    className="bg-primary px-4 py-2 text-xs font-semibold text-primary-fg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    className="flex items-center gap-1.5 bg-primary px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity shadow-xs"
                   >
-                    {importing ? 'Importing Rows...' : `🚀 Import ${parsedRows.length} Rows into ${bulkTable}`}
+                    <Icon name="upload" size={12} />
+                    <span>{importing ? 'Importing Rows...' : `Import ${parsedRows.length} Rows into ${bulkTable}`}</span>
                   </button>
                 </div>
 
@@ -816,14 +832,26 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
                 />
               </div>
 
-              <button
-                type="button"
-                onClick={handleOpenAddForm}
-                className="flex items-center gap-1.5 bg-primary px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover shadow-xs border border-primary transition-colors"
-              >
-                <Icon name="plus" size={14} />
-                <span>Add New Record</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsHelpGuideOpen(true)}
+                  className="flex items-center gap-1.5 border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                  title="Open Graphical Field & Schema Guide"
+                >
+                  <Icon name="help-circle" size={14} />
+                  <span>Field Guide & Help</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenAddForm}
+                  className="flex items-center gap-1.5 bg-primary px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover shadow-xs border border-primary transition-colors"
+                >
+                  <Icon name="plus" size={14} />
+                  <span>Add New Record</span>
+                </button>
+              </div>
             </div>
 
             {/* Table Content Area */}
@@ -1028,6 +1056,356 @@ function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
           </div>
         </div>
       )}
+
+      {/* Graphical Field & Record Creation Guide Modal */}
+      <FieldGuideModal
+        isOpen={isHelpGuideOpen}
+        onClose={() => setIsHelpGuideOpen(false)}
+      />
+    </div>
+  )
+}
+
+// ── Graphical Field & Record Guide Sub-Component ─────────────────────────────────
+
+function FieldGuideModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [activeGuideTab, setActiveGuideTab] = useState<'visual' | 'step_by_step' | 'fields_ref'>('visual')
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
+      <div className="flex h-[84vh] w-full max-w-4xl flex-col overflow-hidden border border-border-strong bg-surface shadow-2xl text-text">
+        {/* Header */}
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-surface-sunken px-4">
+          <div className="flex items-center gap-2">
+            <span className="text-primary">
+              <Icon name="help-circle" size={18} />
+            </span>
+            <h3 className="text-sm font-semibold text-text">
+              Database & Field Definitions Graphical Guide
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-text-secondary hover:text-text"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+
+        {/* Guide Navigation Tabs */}
+        <div className="flex border-b border-border bg-surface-sunken px-4 gap-4 text-xs font-medium shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveGuideTab('visual')}
+            className={`py-2.5 border-b-2 transition-colors ${
+              activeGuideTab === 'visual'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-transparent text-text-secondary hover:text-text'
+            }`}
+          >
+            🎨 Graphical Node & Details Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveGuideTab('step_by_step')}
+            className={`py-2.5 border-b-2 transition-colors ${
+              activeGuideTab === 'step_by_step'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-transparent text-text-secondary hover:text-text'
+            }`}
+          >
+            📝 How to Create & Customise Fields
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveGuideTab('fields_ref')}
+            className={`py-2.5 border-b-2 transition-colors ${
+              activeGuideTab === 'fields_ref'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-transparent text-text-secondary hover:text-text'
+            }`}
+          >
+            📖 Field Properties Cheatsheet
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto p-5 space-y-6">
+          {activeGuideTab === 'visual' && (
+            <div className="space-y-6">
+              <div className="text-xs text-text-secondary">
+                This diagram shows how each setting in <strong className="text-text">Field Definitions</strong> controls what appears on the <strong className="text-primary">Canvas Node Box</strong> vs the <strong className="text-accent">Details Side Panel</strong>:
+              </div>
+
+              {/* Graphical Diagram */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                
+                {/* 1. Node Card Diagram */}
+                <div className="border border-border bg-surface-sunken p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-xs font-semibold text-text uppercase tracking-wider">
+                      1. Canvas Node Card
+                    </span>
+                    <span className="text-[10px] bg-primary/15 text-primary px-2 py-0.5 rounded font-mono font-semibold">
+                      Show on Canvas Card = Y
+                    </span>
+                  </div>
+
+                  {/* Mock Card Box */}
+                  <div className="relative border border-border-strong bg-surface p-3 shadow-md space-y-2 max-w-[240px] mx-auto">
+                    {/* Status Stripe */}
+                    <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-success-fg" />
+
+                    {/* Title Role */}
+                    <div className="relative border-b border-border/40 pb-1">
+                      <div className="text-sm font-semibold text-text truncate pl-2">
+                        Ingest Gateway
+                      </div>
+                      <div className="text-[10px] text-primary font-mono mt-0.5">
+                        ↑ Card Role: "title" (label)
+                      </div>
+                    </div>
+
+                    {/* Subtitle Role */}
+                    <div className="relative border-b border-border/40 pb-1">
+                      <div className="text-[10px] font-semibold uppercase text-text-muted pl-2">
+                        Source · Process
+                      </div>
+                      <div className="text-[10px] text-primary font-mono mt-0.5">
+                        ↑ Card Role: "subtitle" (node_kind)
+                      </div>
+                    </div>
+
+                    {/* Detail Role */}
+                    <div className="relative space-y-1 text-xs pt-1">
+                      <div className="flex items-center justify-between pl-2">
+                        <span className="text-text-muted text-[11px]">Status:</span>
+                        <span className="text-[10px] font-semibold bg-success-bg text-success-fg px-1.5 py-0.5">
+                          Completed
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pl-2 font-mono">
+                        <span className="text-text-muted text-[11px]">Host:</span>
+                        <span className="text-text-secondary text-[11px]">ctm-ingest-01</span>
+                      </div>
+                      <div className="flex items-center justify-between pl-2">
+                        <span className="text-text-muted text-[11px]">Scheduled:</span>
+                        <span className="text-primary font-semibold text-[11px]">Yes</span>
+                      </div>
+                      <div className="text-[10px] text-primary font-mono pt-1">
+                        ↑ Card Role: "detail" (status, host, scheduled)
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-text-muted">
+                    Fields marked <code className="bg-surface px-1 text-text font-mono border border-border">show_on_card = Y</code> appear directly on node boxes on the canvas.
+                  </p>
+                </div>
+
+                {/* 2. Details Pane Diagram */}
+                <div className="border border-border bg-surface-sunken p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-xs font-semibold text-text uppercase tracking-wider">
+                      2. Details Side Panel
+                    </span>
+                    <span className="text-[10px] bg-accent/15 text-accent px-2 py-0.5 rounded font-mono font-semibold">
+                      Show in Details = Y
+                    </span>
+                  </div>
+
+                  {/* Mock Details Panel */}
+                  <div className="border border-border-strong bg-surface p-3 shadow-md space-y-3 text-xs">
+                    {/* Header Section: Identity */}
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted border-b border-border pb-1">
+                        Identity (Section Header: Identity)
+                      </div>
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-text-muted">Node ID:</span>
+                        <span className="font-mono text-text">n-1</span>
+                      </div>
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-text-muted">Node Label:</span>
+                        <span className="font-medium text-text">Ingest Gateway</span>
+                      </div>
+                    </div>
+
+                    {/* Header Section: Execution */}
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted border-b border-border pb-1">
+                        Execution (Section Header: Execution)
+                      </div>
+                      <div className="flex justify-between py-0.5 font-mono">
+                        <span className="text-text-muted">Host:</span>
+                        <span className="text-text">ctm-ingest-01 (Format: mono)</span>
+                      </div>
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-text-muted">Runs:</span>
+                        <span className="text-text">852 (Format: text)</span>
+                      </div>
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-text-muted">Scheduled:</span>
+                        <span className="text-primary font-semibold">Yes (Format: text)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-text-muted">
+                    Section Header (<code className="bg-surface px-1 text-text font-mono border border-border">section_title</code>) groups related fields under category headings in the side pane.
+                  </p>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {activeGuideTab === 'step_by_step' && (
+            <div className="space-y-4 text-xs">
+              <h4 className="font-semibold text-text text-sm">
+                How to Create a Custom Field & Assign Values (Step-by-Step Guide)
+              </h4>
+
+              <div className="space-y-3">
+                <div className="border border-border p-3 bg-surface-sunken space-y-1">
+                  <div className="font-semibold text-primary">
+                    Step 1: Open Field Definitions Tab
+                  </div>
+                  <p className="text-text-muted">
+                    In Database Admin Management, select the <strong className="text-text">Field Definitions</strong> tab and click <strong className="text-primary">+ Add New Record</strong>.
+                  </p>
+                </div>
+
+                <div className="border border-border p-3 bg-surface-sunken space-y-1">
+                  <div className="font-semibold text-primary">
+                    Step 2: Enter Field Identifiers
+                  </div>
+                  <ul className="list-disc list-inside text-text-muted space-y-1">
+                    <li><strong className="text-text">Field Key:</strong> Unique database key in lowercase (e.g. <code className="bg-surface px-1 text-text font-mono">owner</code>, <code className="bg-surface px-1 text-text font-mono">environment</code>, <code className="bg-surface px-1 text-text font-mono">sla_time</code>).</li>
+                    <li><strong className="text-text">Display Label:</strong> UI label (e.g. <code className="bg-surface px-1 text-text font-mono">Owner Name</code>, <code className="bg-surface px-1 text-text font-mono">Environment</code>).</li>
+                  </ul>
+                </div>
+
+                <div className="border border-border p-3 bg-surface-sunken space-y-1">
+                  <div className="font-semibold text-primary">
+                    Step 3: Choose Layout & Placement Settings
+                  </div>
+                  <ul className="list-disc list-inside text-text-muted space-y-1">
+                    <li><strong className="text-text">Details Section Header:</strong> Section category title in Details Pane (e.g. <code className="bg-surface px-1 text-text">Metadata</code> or <code className="bg-surface px-1 text-text">Execution</code>).</li>
+                    <li><strong className="text-text">Card Role:</strong> Set to <code className="bg-surface px-1 text-text font-mono">detail</code> for key-value row, or <code className="bg-surface px-1 text-text font-mono">title</code>/<code className="bg-surface px-1 text-text font-mono">subtitle</code> for headers.</li>
+                    <li><strong className="text-text">Display Format:</strong> Set to <code className="bg-surface px-1 text-text font-mono">text</code> (normal font), <code className="bg-surface px-1 text-text font-mono">mono</code> (code font), or <code className="bg-surface px-1 text-text font-mono">status</code> (status badge).</li>
+                  </ul>
+                </div>
+
+                <div className="border border-border p-3 bg-surface-sunken space-y-1">
+                  <div className="font-semibold text-primary">
+                    Step 4: Set Visibility Flags & Save
+                  </div>
+                  <p className="text-text-muted">
+                    Set <code className="bg-surface px-1 text-text border border-border">Show on Canvas Card = Y</code> and <code className="bg-surface px-1 text-text border border-border">Show in Details Pane = Y</code>. Click <strong className="text-primary">Save Record</strong>.
+                  </p>
+                </div>
+
+                <div className="border border-border p-3 bg-surface-sunken space-y-1 border-l-4 border-l-primary">
+                  <div className="font-semibold text-primary">
+                    Step 5: How to Populate Values for Nodes
+                  </div>
+                  <p className="text-text-muted">
+                    Once a field is created, you can set values for any node in two ways:
+                  </p>
+                  <ul className="list-disc list-inside text-text-muted space-y-1 mt-1">
+                    <li>Edit a node in the <strong className="text-text">Navigation Nodes</strong> tab (your new field will automatically appear in the edit form).</li>
+                    <li>Or upload a CSV in <strong className="text-text">Bulk CSV Import</strong> with a column header matching your field key!</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeGuideTab === 'fields_ref' && (
+            <div className="space-y-4 text-xs">
+              <h4 className="font-semibold text-text text-sm">
+                Field Definitions Column Reference Table
+              </h4>
+
+              <div className="overflow-x-auto border border-border">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-surface-sunken text-text-secondary border-b border-border uppercase font-semibold">
+                    <tr>
+                      <th className="p-2 border-r border-border">Column Name</th>
+                      <th className="p-2 border-r border-border">Type</th>
+                      <th className="p-2">Description / Purpose</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-text">
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">key</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">Unique database key for this field (e.g. <code className="bg-surface px-1 font-mono">status</code>, <code className="bg-surface px-1 font-mono">host</code>, <code className="bg-surface px-1 font-mono">runs</code>, <code className="bg-surface px-1 font-mono">scheduled</code>).</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">label</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">Human-readable label displayed across tables, side panel, and node card rows.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">section_title</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">Category title in the Details Panel (e.g. <code className="bg-surface px-1 font-mono">Identity</code>, <code className="bg-surface px-1 font-mono">Execution</code>, <code className="bg-surface px-1 font-mono">State</code>, <code className="bg-surface px-1 font-mono">Scheduling</code>).</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">role</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">
+                        Placement on card: <code className="bg-surface px-1 font-mono">title</code> (main line), <code className="bg-surface px-1 font-mono">subtitle</code> (sub-line), <code className="bg-surface px-1 font-mono">detail</code> (key-value row), <code className="bg-surface px-1 font-mono">none</code>.
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">format</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">
+                        Display format: <code className="bg-surface px-1 font-mono">text</code> (normal), <code className="bg-surface px-1 font-mono">mono</code> (code font), <code className="bg-surface px-1 font-mono">status</code> (status badge).
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">show_on_card</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">Whether to display this field directly on canvas node boxes (<code className="bg-surface px-1 font-mono">Y</code> or <code className="bg-surface px-1 font-mono">N</code>).</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">show_in_details</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">TEXT</td>
+                      <td className="p-2">Whether to display this field in the Details side panel & List View chooser (<code className="bg-surface px-1 font-mono">Y</code> or <code className="bg-surface px-1 font-mono">N</code>).</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 font-mono text-primary border-r border-border">is_protected</td>
+                      <td className="p-2 font-mono text-text-muted border-r border-border">INTEGER</td>
+                      <td className="p-2">System core flag (<code className="bg-surface px-1 font-mono">1</code> = system core field, protected from deletion; <code className="bg-surface px-1 font-mono">0</code> = custom user field).</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border bg-surface-sunken px-4 py-2.5 shrink-0">
+          <span className="text-xs text-text-muted">
+            Tip: You can add custom fields anytime — they will instantly appear across the Canvas, List View, and Details Panel!
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover"
+          >
+            Close Guide
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchTableRows, updateTableRow, createTableRow, deleteTableRow } from '../api/client'
+import { fetchTableRows, updateTableRow, createTableRow, deleteTableRow, fetchBusinessDate } from '../api/client'
+import type { BusinessDateResult } from '../api/client'
+import Icon, { type IconName } from './Icon'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +42,7 @@ interface SettingsModalProps {
   onSaved: () => void
 }
 
-type TabId = 'status' | 'layout' | 'relation'
+type TabId = 'status' | 'layout' | 'relation' | 'business'
 
 export default function SettingsModal({ isOpen, onClose, onSaved }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('status')
@@ -59,12 +61,12 @@ export default function SettingsModal({ isOpen, onClose, onSaved }: SettingsModa
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="flex flex-col w-[680px] max-h-[85vh] border border-border bg-surface shadow-2xl overflow-hidden">
+      <div className="flex flex-col w-[680px] h-[85vh] border border-border bg-surface shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-surface-sunken px-5 py-3 shrink-0">
           <div>
             <h2 className="text-sm font-semibold text-text">Application Settings</h2>
-            <p className="text-xs text-text-muted mt-0.5">Configure status colors, canvas layout, and node highlight colors</p>
+            <p className="text-xs text-text-muted mt-0.5">Configure status colors, canvas layout, node highlight colors, and business date settings</p>
           </div>
           <button
             type="button"
@@ -78,22 +80,26 @@ export default function SettingsModal({ isOpen, onClose, onSaved }: SettingsModa
 
         {/* Tabs */}
         <div className="flex shrink-0 border-b border-border bg-surface-sunken px-4 gap-0">
-          {([
-            ['status',   '🎨 Status Colors'],
-            ['layout',   '📐 Canvas Layout'],
-            ['relation', '🔗 Node Highlights'],
-          ] as [TabId, string][]).map(([id, label]) => (
+          {(
+            [
+              ['status',   'palette',       'Status Colors'],
+              ['layout',   'ruler',          'Canvas Layout'],
+              ['relation', 'node-highlight', 'Node Highlights'],
+              ['business', 'clock',          'Business Date'],
+            ] as [TabId, IconName, string][]
+          ).map(([id, icon, label]) => (
             <button
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
               className={[
-                'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors',
                 activeTab === id
                   ? 'border-primary text-primary'
                   : 'border-transparent text-text-muted hover:text-text',
               ].join(' ')}
             >
+              <Icon name={icon} size={12} />
               {label}
             </button>
           ))}
@@ -116,6 +122,9 @@ export default function SettingsModal({ isOpen, onClose, onSaved }: SettingsModa
           )}
           {activeTab === 'relation' && (
             <NodeHighlightTab saving={saving} setSaving={setSaving} onSaved={showSaved} />
+          )}
+          {activeTab === 'business' && (
+            <BusinessDateTab saving={saving} setSaving={setSaving} onSaved={showSaved} />
           )}
         </div>
 
@@ -516,6 +525,173 @@ function NodeHighlightTab({
         className="px-4 py-2 text-sm font-medium bg-primary text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
       >
         {saving ? 'Saving…' : 'Save Highlight Settings'}
+      </button>
+    </div>
+  )
+}
+
+// ── Business Date Tab ─────────────────────────────────────────────────────────
+
+function BusinessDateTab({
+  saving,
+  setSaving,
+  onSaved,
+}: {
+  saving: boolean
+  setSaving: (v: boolean) => void
+  onSaved: (msg?: string) => void
+}) {
+  const [loading, setLoading] = useState(true)
+  /** Controlled value for the time picker — stored as "HH:MM" string */
+  const [timeValue, setTimeValue] = useState('00:00')
+  const [liveResult, setLiveResult] = useState<BusinessDateResult | null>(null)
+  const [liveError, setLiveError] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  // Load persisted values from app_config
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const rows = await fetchTableRows<{ key: string; value: string }>('app_config')
+      const hourRow   = rows.find((r) => r.key === 'business.dayStartHour')
+      const minuteRow = rows.find((r) => r.key === 'business.dayStartMinute')
+      const h = String(hourRow   ? parseInt(hourRow.value,   10) : 0).padStart(2, '0')
+      const m = String(minuteRow ? parseInt(minuteRow.value, 10) : 0).padStart(2, '0')
+      setTimeValue(`${h}:${m}`)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  // Refresh the live server preview whenever timeValue changes
+  const refreshPreview = useCallback(async () => {
+    setPreviewLoading(true)
+    setLiveError(null)
+    try {
+      const result = await fetchBusinessDate()
+      setLiveResult(result)
+    } catch (err) {
+      setLiveError('API server not reachable — start it with `npm run api`.')
+      setLiveResult(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [])
+
+  // Initial preview load
+  useEffect(() => { refreshPreview() }, [refreshPreview])
+
+  const save = async () => {
+    const [hStr, mStr] = timeValue.split(':')
+    const hour   = Math.min(23, Math.max(0, parseInt(hStr, 10) || 0))
+    const minute = Math.min(59, Math.max(0, parseInt(mStr, 10) || 0))
+    setSaving(true)
+    try {
+      await updateTableRow('app_config', 'business.dayStartHour',   { value: String(hour) })
+      await updateTableRow('app_config', 'business.dayStartMinute', { value: String(minute) })
+      onSaved('Business date settings saved. Refresh to apply.')
+      // Re-fetch the live preview so it reflects the new setting immediately
+      await refreshPreview()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return <div className="p-5 text-sm text-text-muted">Loading…</div>
+
+  const [hDisplay, mDisplay] = timeValue.split(':')
+  const hNum = parseInt(hDisplay, 10) || 0
+  const mNum = parseInt(mDisplay, 10) || 0
+  const isDefaultMidnight = hNum === 0 && mNum === 0
+
+  // Human-readable description of the rule
+  const ruleSummary = isDefaultMidnight
+    ? 'The business date matches the calendar date (default — rolls over at midnight).'
+    : `The business date rolls over at ${timeValue}. Before that time the business date is still the previous calendar day.`
+
+  return (
+    <div className="p-4 space-y-5">
+      <p className="text-xs text-text-muted">
+        Set the time at which the business day begins. Jobs run before this threshold are
+        considered part of the <em>previous</em> business date.
+      </p>
+
+      {/* ── Time picker ── */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-text-secondary" htmlFor="biz-day-start">
+          Day Start Time
+        </label>
+        <div className="flex items-center gap-3">
+          <input
+            id="biz-day-start"
+            type="time"
+            value={timeValue}
+            onChange={(e) => setTimeValue(e.target.value)}
+            className="border border-border bg-surface-sunken px-3 py-1.5 text-sm text-text font-mono focus:outline-none focus:border-primary w-36"
+          />
+          <span className="text-xs text-text-muted">
+            {isDefaultMidnight ? '(default — midnight)' : '24-hour format'}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Rule summary card ── */}
+      <div className="border border-border bg-surface-sunken px-4 py-3 space-y-1">
+        <p className="text-xs text-text-secondary leading-relaxed">{ruleSummary}</p>
+        {!isDefaultMidnight && (
+          <p className="text-xs text-text-muted">
+            Example: at <strong className="font-mono text-text">{timeValue.replace(':', ':').slice(0, 5)}</strong>{' '}
+            minus one minute, the business date would be{' '}
+            <strong className="text-text">yesterday</strong>.
+          </p>
+        )}
+      </div>
+
+      {/* ── Live server preview ── */}
+      <div className="border border-border bg-surface px-4 py-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-text uppercase tracking-wide">
+            Live Server Response
+          </span>
+          <button
+            type="button"
+            onClick={refreshPreview}
+            disabled={previewLoading}
+            className="text-[11px] text-primary hover:underline disabled:opacity-50"
+          >
+            {previewLoading ? 'Fetching…' : '↻ Refresh'}
+          </button>
+        </div>
+
+        {liveError ? (
+          <p className="text-xs text-warning-fg bg-warning-bg/20 border border-warning-fg/30 px-3 py-2">
+            {liveError}
+          </p>
+        ) : liveResult ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <dt className="text-text-muted">Business Date</dt>
+            <dd className="font-semibold text-primary font-mono">{liveResult.businessDate}</dd>
+            <dt className="text-text-muted">Day Start (configured)</dt>
+            <dd className="font-mono text-text">{liveResult.dayStart}</dd>
+            <dt className="text-text-muted">Server Time</dt>
+            <dd className="font-mono text-text-secondary text-[11px]">
+              {new Date(liveResult.serverTime).toLocaleTimeString()}
+            </dd>
+          </dl>
+        ) : (
+          <p className="text-xs text-text-muted">Loading server data…</p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        disabled={saving}
+        onClick={save}
+        className="px-4 py-2 text-sm font-medium bg-primary text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
+      >
+        {saving ? 'Saving…' : 'Save Business Date Settings'}
       </button>
     </div>
   )

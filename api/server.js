@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { all, getNavTree, initDb, run } from './db.js'
+import { all, get, getNavTree, initDb, run } from './db.js'
 import { getEligibleRunDates, evaluateScheduledDate, ScheduleConfig } from './schedule.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -92,14 +92,96 @@ app.post('/api/schedules/evaluate', async (req, res) => {
   }
 })
 
+async function computeBusinessDateInfo() {
+  const hourRow   = await get("SELECT value FROM app_config WHERE key = 'business.dayStartHour'")  
+  const minuteRow = await get("SELECT value FROM app_config WHERE key = 'business.dayStartMinute'")
+
+  const startHour   = hourRow   ? parseInt(hourRow.value,   10) : 0
+  const startMinute = minuteRow ? parseInt(minuteRow.value, 10) : 0
+
+  const now = new Date()
+  const nowHour   = now.getHours()
+  const nowMinute = now.getMinutes()
+
+  const beforeThreshold =
+    nowHour < startHour ||
+    (nowHour === startHour && nowMinute < startMinute)
+
+  const businessDate = new Date(now)
+  if (beforeThreshold) {
+    businessDate.setDate(businessDate.getDate() - 1)
+  }
+
+  const y = businessDate.getFullYear()
+  const m = String(businessDate.getMonth() + 1).padStart(2, '0')
+  const d = String(businessDate.getDate()).padStart(2, '0')
+  const businessDateStr = `${y}-${m}-${d}`
+
+  return { businessDate, businessDateStr, startHour, startMinute }
+}
+
+async function syncScheduleConfigsForBusinessDate(businessDateStr, businessDateObj) {
+  const schedConfigs = await all('SELECT * FROM schedule_configs')
+  const resultMap = new Map()
+  if (!schedConfigs || schedConfigs.length === 0) return resultMap
+
+  const calendars = await all('SELECT * FROM calendars')
+  const calendarsMap = {}
+  calendars.forEach((c) => {
+    let workdays = [1, 2, 3, 4, 5]
+    let holidays = []
+    try {
+      if (c.workdays) workdays = typeof c.workdays === 'string' ? JSON.parse(c.workdays) : c.workdays
+      if (c.holidays) holidays = typeof c.holidays === 'string' ? JSON.parse(c.holidays) : c.holidays
+    } catch (e) {}
+    calendarsMap[c.name] = { WORKDAYS: workdays, HOLIDAYS: holidays }
+  })
+
+  for (const sc of schedConfigs) {
+    if (sc.last_evaluated_date === businessDateStr && sc.is_scheduled_today) {
+      resultMap.set(sc.name, sc.is_scheduled_today)
+      continue
+    }
+
+    let isScheduledToday = 'No'
+    try {
+      const config = JSON.parse(sc.config_data)
+      const fullConfig = {
+        ...config,
+        CALENDARS: {
+          ...calendarsMap,
+          ...(config.CALENDARS || {}),
+        },
+      }
+      const targetDate = businessDateObj || new Date(businessDateStr + 'T00:00:00Z')
+      const effectiveDate = evaluateScheduledDate(targetDate, fullConfig)
+      isScheduledToday = effectiveDate !== null ? 'Yes' : 'No'
+    } catch (err) {
+      console.error(`Error evaluating schedule_config ${sc.name}:`, err)
+    }
+
+    await run(
+      'UPDATE schedule_configs SET last_evaluated_date = ?, is_scheduled_today = ? WHERE id = ?',
+      [businessDateStr, isScheduledToday, sc.id]
+    )
+
+    resultMap.set(sc.name, isScheduledToday)
+  }
+
+  return resultMap
+}
+
 // Combined dashboard payload for fast loading and refresh
 app.get('/api/data', async (req, res) => {
   try {
+    const { businessDateStr, businessDate } = await computeBusinessDateInfo()
+    const scheduledMap = await syncScheduleConfigsForBusinessDate(businessDateStr, businessDate)
+
     const modules = await all('SELECT id, label FROM modules')
     const viewpointsRows = await all(
       'SELECT id, module_id as moduleId, label, description, folder, job_count as jobCount, scope, filter_status as filterStatus, grouping, sort_by as sortBy FROM viewpoints'
     )
-    const navTree = await getNavTree()
+    const navTree = await getNavTree(scheduledMap)
     const edges = await all('SELECT id, source, target FROM edges')
     const fieldDefinitions = await all(
       'SELECT key, label, section_title as sectionTitle, role, format, sort_order as sortOrder, is_protected as isProtected, show_on_card as showOnCard, show_in_details as showInDetails, is_active as isActive FROM field_definitions ORDER BY sort_order ASC'
@@ -205,7 +287,13 @@ app.get('/api/crud/:table', async (req, res) => {
 
 function normalizeRecordKeys(table, rawData) {
   if (!rawData || typeof rawData !== 'object') return rawData
-  const mapped = { ...rawData }
+  const mapped = {}
+
+  for (const [rawKey, val] of Object.entries(rawData)) {
+    // Strip BOM (\uFEFF) and quotes/whitespace from key names
+    const key = rawKey.replace(/^\uFEFF/, '').trim().replace(/^["']|["']$/g, '')
+    mapped[key] = val
+  }
 
   if ('sectionTitle' in mapped) { mapped.section_title = mapped.sectionTitle; delete mapped.sectionTitle }
   if ('sortOrder' in mapped) { mapped.sort_order = mapped.sortOrder; delete mapped.sortOrder }
@@ -218,6 +306,17 @@ function normalizeRecordKeys(table, rawData) {
   if ('nodeKind' in mapped) { mapped.node_kind = mapped.nodeKind; delete mapped.nodeKind }
   if ('jobCount' in mapped) { mapped.job_count = mapped.jobCount; delete mapped.jobCount }
   if ('moduleId' in mapped) { mapped.module_id = mapped.moduleId; delete mapped.moduleId }
+
+  if (table === 'edges') {
+    const edgeCols = ['id', 'source', 'target']
+    const edgeRecord = {}
+    for (const col of edgeCols) {
+      if (col in mapped && mapped[col] !== undefined && mapped[col] !== '') {
+        edgeRecord[col] = mapped[col]
+      }
+    }
+    return edgeRecord
+  }
 
   return mapped
 }
@@ -238,39 +337,13 @@ async function syncNodeFieldValues(nodeId, rawData) {
   }
 }
 
-app.post('/api/crud/:table', async (req, res) => {
-  const { table } = req.params
-  if (!ALLOWED_TABLES.includes(table)) {
-    return res.status(400).json({ error: `Invalid table: ${table}` })
+async function invalidateScheduleCacheIfNeeded(table) {
+  if (table === 'schedule_configs' || table === 'calendars' || table === 'app_config') {
+    try {
+      await run("UPDATE schedule_configs SET last_evaluated_date = NULL")
+    } catch (e) {}
   }
-  const rawData = normalizeRecordKeys(table, req.body)
-  let data = rawData
-  if (table === 'nav_nodes') {
-    data = prepareNavNodeRecord(rawData)
-  }
-
-  const keys = Object.keys(data).filter(
-    (k) => !(table === 'node_logs' && k === 'id' && !data[k])
-  )
-  if (keys.length === 0) {
-    return res.status(400).json({ error: 'No data provided to insert' })
-  }
-  const placeholders = keys.map(() => '?').join(', ')
-  const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`
-  const params = keys.map((k) => (data[k] === '' ? null : data[k]))
-
-  try {
-    const result = await run(sql, params)
-    const insertedId = data.id || result.lastID
-    if (table === 'nav_nodes' && insertedId) {
-      await syncNodeFieldValues(String(insertedId), rawData)
-    }
-    res.json({ success: true, id: insertedId })
-  } catch (err) {
-    console.error(`Error inserting into ${table}:`, err)
-    res.status(500).json({ error: err.message })
-  }
-})
+}
 
 // Bulk Insertion Endpoint for CSV uploads
 app.post('/api/crud/bulk/:table', async (req, res) => {
@@ -303,9 +376,45 @@ app.post('/api/crud/bulk/:table', async (req, res) => {
       }
       insertedCount++
     }
+    await invalidateScheduleCacheIfNeeded(table)
     res.json({ success: true, count: insertedCount })
   } catch (err) {
     console.error(`Error in bulk insert into ${table}:`, err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/crud/:table', async (req, res) => {
+  const { table } = req.params
+  if (!ALLOWED_TABLES.includes(table)) {
+    return res.status(400).json({ error: `Invalid table: ${table}` })
+  }
+  const rawData = normalizeRecordKeys(table, req.body)
+  let data = rawData
+  if (table === 'nav_nodes') {
+    data = prepareNavNodeRecord(rawData)
+  }
+
+  const keys = Object.keys(data).filter(
+    (k) => !(table === 'node_logs' && k === 'id' && !data[k])
+  )
+  if (keys.length === 0) {
+    return res.status(400).json({ error: 'No data provided to insert' })
+  }
+  const placeholders = keys.map(() => '?').join(', ')
+  const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`
+  const params = keys.map((k) => (data[k] === '' ? null : data[k]))
+
+  try {
+    const result = await run(sql, params)
+    const insertedId = data.id || result.lastID
+    if (table === 'nav_nodes' && insertedId) {
+      await syncNodeFieldValues(String(insertedId), rawData)
+    }
+    await invalidateScheduleCacheIfNeeded(table)
+    res.json({ success: true, id: insertedId })
+  } catch (err) {
+    console.error(`Error inserting into ${table}:`, err)
     res.status(500).json({ error: err.message })
   }
 })
@@ -335,6 +444,7 @@ app.put('/api/crud/:table/:id', async (req, res) => {
     if (table === 'nav_nodes') {
       await syncNodeFieldValues(id, rawData)
     }
+    await invalidateScheduleCacheIfNeeded(table)
     res.json({ success: true, id })
   } catch (err) {
     console.error(`Error updating ${table}:`, err)
@@ -356,6 +466,7 @@ app.delete('/api/crud/:table/:id', async (req, res) => {
     }
     const pkColumn = (table === 'field_definitions' || table === 'app_config') ? 'key' : 'id'
     await run(`DELETE FROM ${table} WHERE ${pkColumn} = ?`, [id])
+    await invalidateScheduleCacheIfNeeded(table)
     res.json({ success: true, id })
   } catch (err) {
     console.error(`Error deleting from ${table}:`, err)
@@ -455,6 +566,33 @@ app.post('/api/schedules/evaluate-date', async (req, res) => {
   } catch (err) {
     console.error('Error evaluating single date:', err)
     res.status(500).json({ error: err.message })
+  }
+})
+
+// Business date endpoint
+// Returns the current business date based on a configurable day-start threshold.
+// If the server clock is before the threshold (e.g. 03:00) the business date is
+// still the previous calendar day.
+app.get('/api/business-date', async (req, res) => {
+  try {
+    const { businessDate, businessDateStr, startHour, startMinute } = await computeBusinessDateInfo()
+    const scheduledMap = await syncScheduleConfigsForBusinessDate(businessDateStr, businessDate)
+
+    const sh = String(startHour).padStart(2, '0')
+    const sm = String(startMinute).padStart(2, '0')
+
+    res.json({
+      businessDate: businessDateStr,
+      dayStart: `${sh}:${sm}`,
+      serverTime: new Date().toISOString(),
+      scheduleConfigsEvaluated: Array.from(scheduledMap.entries()).map(([name, isScheduledToday]) => ({
+        name,
+        isScheduledToday,
+      })),
+    })
+  } catch (err) {
+    console.error('Error computing business date:', err)
+    res.status(500).json({ error: 'Failed to compute business date' })
   }
 })
 

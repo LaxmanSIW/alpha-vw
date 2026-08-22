@@ -34,6 +34,14 @@ export type IconName =
   | 'check'
   | 'x'
   | 'calendar'
+  | 'clock'
+  | 'palette'
+  | 'ruler'
+  | 'node-highlight'
+  | 'drag-handle'
+  | 'download'
+  | 'upload'
+  | 'help-circle'
 
 const PATHS: Record<IconName, React.ReactNode> = {
   'chevron-left': <polyline points="10,3 5,8 10,13" />,
@@ -167,6 +175,116 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <line x1="2" y1="6" x2="14" y2="6" />
       <line x1="5" y1="1" x2="5" y2="4" />
       <line x1="11" y1="1" x2="11" y2="4" />
+    </>
+  ),
+  clock: (
+    <>
+      {/* Face */}
+      <circle cx="8" cy="8" r="6" />
+      {/* Hour hand — points to ~9 o'clock */}
+      <line x1="8" y1="8" x2="5" y2="8" strokeWidth={1.5} />
+      {/* Minute hand — points to ~12 o'clock */}
+      <line x1="8" y1="8" x2="8" y2="4" strokeWidth={1.25} />
+      {/* Center dot */}
+      <circle cx="8" cy="8" r="0.75" fill="currentColor" stroke="none" />
+    </>
+  ),
+  /**
+   * palette — three status-legend rows: filled square swatch + label line.
+   * Reads as a color legend / status key at any icon size.
+   */
+  palette: (
+    <>
+      <rect x="2" y="2" width="3.5" height="3.5" fill="currentColor" stroke="none" />
+      <line x1="7.5" y1="3.75" x2="14" y2="3.75" />
+      <rect x="2" y="6.25" width="3.5" height="3.5" fill="currentColor" stroke="none" />
+      <line x1="7.5" y1="8" x2="14" y2="8" />
+      <rect x="2" y="10.5" width="3.5" height="3.5" fill="currentColor" stroke="none" />
+      <line x1="7.5" y1="12.25" x2="14" y2="12.25" />
+    </>
+  ),
+  /**
+   * ruler — a flat rectangular ruler body with evenly-spaced tick marks.
+   * Evokes measurement / canvas layout dimensions.
+   */
+  ruler: (
+    <>
+      <rect x="1" y="5" width="14" height="6" />
+      {/* Major ticks at quarter marks */}
+      <line x1="4.5"  y1="5" x2="4.5"  y2="7.5" />
+      <line x1="8"    y1="5" x2="8"    y2="7.5" />
+      <line x1="11.5" y1="5" x2="11.5" y2="7.5" />
+      {/* Minor ticks */}
+      <line x1="2.5"  y1="5" x2="2.5"  y2="6.5" />
+      <line x1="6.25" y1="5" x2="6.25" y2="6.5" />
+      <line x1="9.75" y1="5" x2="9.75" y2="6.5" />
+      <line x1="13.5" y1="5" x2="13.5" y2="6.5" />
+    </>
+  ),
+  /**
+   * node-highlight — a node rectangle with a larger dashed outline around it,
+   * signifying the selection / relation highlight border applied to nodes.
+   */
+  'node-highlight': (
+    <>
+      {/* Inner node box */}
+      <rect x="4" y="5" width="8" height="6" />
+      {/* Outer highlight outline — dashed to distinguish from the node border */}
+      <rect x="1.5" y="2.5" width="13" height="11" strokeDasharray="2.5 1.5" />
+    </>
+  ),
+  /**
+   * drag-handle — 2×3 grid of dots. Universal affordance for draggable rows.
+   * Filled circles so they read clearly at 12-14px.
+   */
+  'drag-handle': (
+    <>
+      {/* Left column */}
+      <circle cx="5.5" cy="4"  r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="5.5" cy="8"  r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="5.5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+      {/* Right column */}
+      <circle cx="10.5" cy="4"  r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="10.5" cy="8"  r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="10.5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+    </>
+  ),
+  /**
+   * download — downward arrow with a tray/shelf line at the bottom.
+   * Reads as export / save-to-file at any size.
+   */
+  download: (
+    <>
+      {/* Vertical shaft */}
+      <line x1="8" y1="2" x2="8" y2="10" />
+      {/* Arrow head */}
+      <polyline points="4,7 8,11 12,7" />
+      {/* Shelf / tray */}
+      <line x1="2" y1="14" x2="14" y2="14" />
+    </>
+  ),
+  /**
+   * upload — upward arrow with a tray/shelf line at the bottom.
+   * Reads as import / upload-file at any size.
+   */
+  upload: (
+    <>
+      {/* Vertical shaft */}
+      <line x1="8" y1="10" x2="8" y2="2" />
+      {/* Arrow head pointing up */}
+      <polyline points="4,5 8,1 12,5" />
+      {/* Shelf / tray */}
+      <line x1="2" y1="14" x2="14" y2="14" />
+    </>
+  ),
+  /**
+   * help-circle — question mark inside circle for help & visual guide buttons.
+   */
+  'help-circle': (
+    <>
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M6 6a2 2 0 0 0 3.8-0.8c0 1-1.3 1.3-1.8 2.3" strokeLinecap="round" />
+      <circle cx="8" cy="11" r="0.75" fill="currentColor" stroke="none" />
     </>
   ),
 }

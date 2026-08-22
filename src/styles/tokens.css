@@ -50,6 +50,7 @@
 
   /* Brand */
   --primary:        #0033a1;
+  --primary-fg:     #ffffff;
   --primary-hover:  #002878;
   --primary-active: #001f5c;
   --accent:         #00a8b0;    /* NOTE: light color -- pair with --text, not white */

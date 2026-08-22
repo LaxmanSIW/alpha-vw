@@ -35,10 +35,18 @@ export interface RelationConfig {
   outlineWidth: number
 }
 
+export interface BusinessConfig {
+  /** Hour (0-23) at which the business day rolls over to the next calendar date. */
+  dayStartHour: number
+  /** Minute (0-59) at which the business day rolls over. */
+  dayStartMinute: number
+}
+
 export interface AppConfig {
   statuses: StatusDef[]
   layout: LayoutConfig
   relation: RelationConfig
+  business: BusinessConfig
 }
 
 // ── Defaults (match current hardcoded values exactly) ────────────────────────
@@ -62,6 +70,10 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     predColor: '#f97316',
     succColor: '#22d3ee',
     outlineWidth: 1,
+  },
+  business: {
+    dayStartHour: 0,
+    dayStartMinute: 0,
   },
 }
 
@@ -153,6 +165,15 @@ export function parseAppConfig(rows: RawConfigRow[]): AppConfig {
           cfg.relation.outlineWidth = Number(row.value) || 1
         } else if (field in cfg.relation) {
           ;(cfg.relation as unknown as Record<string, string>)[field] = row.value
+        }
+        break
+      }
+      case 'business': {
+        const field = row.key.replace('business.', '') as keyof BusinessConfig
+        if (field === 'dayStartHour') {
+          cfg.business.dayStartHour = Math.min(23, Math.max(0, Number(row.value) || 0))
+        } else if (field === 'dayStartMinute') {
+          cfg.business.dayStartMinute = Math.min(59, Math.max(0, Number(row.value) || 0))
         }
         break
       }

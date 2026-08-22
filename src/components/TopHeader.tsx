@@ -100,7 +100,7 @@ function TopHeader({
             onClick={() => setAccountMenuOpen((prev) => !prev)}
             className="flex items-center gap-1.5 px-2 py-1 text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors border border-transparent hover:border-border"
           >
-            <span className="flex size-5 items-center justify-center bg-primary text-xs font-semibold text-primary-fg">
+            <span className="flex size-5 items-center justify-center bg-primary text-xs font-semibold text-white">
               LD
             </span>
             <span className="text-xs font-medium text-text">User / LD</span>

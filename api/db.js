@@ -131,9 +131,18 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS schedule_configs (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
-      config_data TEXT NOT NULL
+      config_data TEXT NOT NULL,
+      last_evaluated_date TEXT,
+      is_scheduled_today TEXT DEFAULT 'N/A'
     )
   `)
+
+  try {
+    await run(`ALTER TABLE schedule_configs ADD COLUMN last_evaluated_date TEXT`)
+  } catch (e) { /* column exists */ }
+  try {
+    await run(`ALTER TABLE schedule_configs ADD COLUMN is_scheduled_today TEXT DEFAULT 'N/A'`)
+  } catch (e) { /* column exists */ }
 
   await run(`
     CREATE TABLE IF NOT EXISTS app_config (
@@ -178,6 +187,12 @@ export async function initDb() {
     { key: 'relation.predColor',     category: 'relation', label: 'Predecessor Node Color',  value: '#f97316', sort_order: 2 },
     { key: 'relation.succColor',     category: 'relation', label: 'Successor Node Color',    value: '#22d3ee', sort_order: 3 },
     { key: 'relation.outlineWidth',  category: 'relation', label: 'Highlight Outline Width', value: '1',       sort_order: 4 },
+
+    // ── Business date ─────────────────────────────────────────────────────────
+    // The business day is considered "today" only once the clock passes dayStart.
+    // Before that threshold the business date is still the previous calendar day.
+    { key: 'business.dayStartHour',   category: 'business', label: 'Day Start Hour',   value: '0', sort_order: 1 },
+    { key: 'business.dayStartMinute', category: 'business', label: 'Day Start Minute', value: '0', sort_order: 2 },
   ]
 
   for (const row of defaultConfigRows) {
@@ -197,6 +212,7 @@ export async function initDb() {
     { key: 'status', label: 'Status', section_title: 'State', role: 'detail', format: 'status', sort_order: 6, is_protected: 1, show_on_card: 'Y', show_in_details: 'Y' },
     { key: 'host', label: 'Host', section_title: 'Execution', role: 'detail', format: 'mono', sort_order: 7, is_protected: 0, show_on_card: 'Y', show_in_details: 'Y' },
     { key: 'runs', label: 'Runs', section_title: 'Execution', role: 'detail', format: 'text', sort_order: 8, is_protected: 0, show_on_card: 'Y', show_in_details: 'Y' },
+    { key: 'scheduled', label: 'Scheduled', section_title: 'Execution', role: 'detail', format: 'text', sort_order: 8.5, is_protected: 1, show_on_card: 'Y', show_in_details: 'Y' },
     { key: 'schedule', label: 'Schedule Config', section_title: 'Scheduling', role: 'detail', format: 'text', sort_order: 9, is_protected: 1, show_on_card: 'N', show_in_details: 'Y' },
   ]
 
@@ -278,90 +294,23 @@ export async function initDb() {
     // Seed Viewpoints
     await run(
       'INSERT INTO viewpoints (id, module_id, label, description, folder, job_count) VALUES (?, ?, ?, ?, ?, ?)',
-      ['arch-viewpoint_jobs', 'architecture', 'Viewpoint_jobs', 'Primary ingest and reconciliation flow', 'Alpha VW / Domain A', 8]
+      ['arch-viewpoint_jobs', 'architecture', 'Viewpoint_jobs', 'Primary ingest and reconciliation flow', 'Alpha VW / Domain A', 0]
     )
     await run(
       'INSERT INTO viewpoints (id, module_id, label, description, folder, job_count) VALUES (?, ?, ?, ?, ?, ?)',
-      ['arch-v2', 'architecture', 'v2', 'Candidate topology with split validation', 'Alpha VW / Domain B', 8]
+      ['arch-v2', 'architecture', 'v2', 'Candidate topology with split validation', 'Alpha VW / Domain B', 0]
     )
     await run(
       'INSERT INTO viewpoints (id, module_id, label, description, folder, job_count) VALUES (?, ?, ?, ?, ?, ?)',
-      ['arch-shared', 'architecture', 'Shared', 'Cross-domain shared services', 'Alpha VW / Shared', 2]
+      ['arch-shared', 'architecture', 'Shared', 'Cross-domain shared services', 'Alpha VW / Shared', 0]
     )
 
-    // Seed Nav Nodes
-    const nodesToSeed = [
-      { id: 'n-shared', label: 'Shared', kind: 'folder', parent_id: null, sort_order: 1 },
-      { id: 'n-7', label: 'Identity', kind: 'item', parent_id: 'n-shared', node_kind: 'Service', status: 'Completed', host: 'ctm-idp-01', runs: 1204, sort_order: 1 },
-      { id: 'n-8', label: 'Audit Log', kind: 'item', parent_id: 'n-shared', node_kind: 'Service', status: 'Executing', host: 'ctm-idp-01', runs: 1204, sort_order: 2 },
-      { id: 'n-alpha', label: 'Alpha VW', kind: 'folder', parent_id: null, sort_order: 2 },
-      { id: 'n-domain-a', label: 'Domain A', kind: 'folder', parent_id: 'n-alpha', sort_order: 1 },
-      { id: 'n-1', label: 'Ingest Gateway', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Source', status: 'Completed', host: 'ctm-ingest-01', runs: 852, sort_order: 1 },
-      { id: 'n-2', label: 'Validator', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Process', status: 'Executing', host: 'ctm-app-01', runs: 850, sort_order: 2 },
-      { id: 'n-3', label: 'Aggregator', kind: 'item', parent_id: 'n-domain-a', node_kind: 'Process', status: 'Wait for Event', host: 'ctm-app-01', runs: 848, sort_order: 3 },
-      { id: 'n-domain-b', label: 'Domain B', kind: 'folder', parent_id: 'n-alpha', sort_order: 2 },
-      { id: 'n-4', label: 'Ledger Store', kind: 'item', parent_id: 'n-domain-b', node_kind: 'Store', status: 'Completed', host: 'ctm-db-01', runs: 410, sort_order: 1 },
-      { id: 'n-5', label: 'Reconciler', kind: 'item', parent_id: 'n-domain-b', node_kind: 'Process', status: 'Wait for Event', host: 'ctm-app-02', runs: 411, sort_order: 2 },
-      { id: 'n-domain-c', label: 'Domain C', kind: 'folder', parent_id: 'n-alpha', sort_order: 3 },
-      { id: 'n-6', label: 'Export Gateway', kind: 'item', parent_id: 'n-domain-c', node_kind: 'Sink', status: 'Failed', host: 'ctm-edge-01', runs: 398, sort_order: 1 },
-    ]
-
-    for (const node of nodesToSeed) {
-      await run(
-        `INSERT INTO nav_nodes (id, label, kind, parent_id, node_kind, status, host, runs, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          node.id,
-          node.label,
-          node.kind,
-          node.parent_id,
-          node.node_kind || null,
-          node.status || null,
-          node.host || null,
-          node.runs || null,
-          node.sort_order || 0,
-        ]
-      )
-    }
-
-    // Seed Edges
-    const edgesToSeed = [
-      { id: 'e7-3', source: 'n-7', target: 'n-3' },
-      { id: 'e1-2', source: 'n-1', target: 'n-2' },
-      { id: 'e2-3', source: 'n-2', target: 'n-3' },
-      { id: 'e2-5', source: 'n-2', target: 'n-5' },
-      { id: 'e4-5', source: 'n-4', target: 'n-5' },
-      { id: 'e3-6', source: 'n-3', target: 'n-6' },
-      { id: 'e5-6', source: 'n-5', target: 'n-6' },
-    ]
-
-    for (const edge of edgesToSeed) {
-      await run('INSERT INTO edges (id, source, target) VALUES (?, ?, ?)', [edge.id, edge.source, edge.target])
-    }
-
-    // Seed Node Logs
-    const logsToSeed = [
-      { node_id: 'n-1', timestamp: new Date().toISOString(), level: 'INFO', message: 'Ingest Gateway service initialized.' },
-      { node_id: 'n-1', timestamp: new Date().toISOString(), level: 'INFO', message: 'Processed 852 batches successfully.' },
-      { node_id: 'n-2', timestamp: new Date().toISOString(), level: 'INFO', message: 'Validator pipeline active.' },
-      { node_id: 'n-3', timestamp: new Date().toISOString(), level: 'INFO', message: 'Aggregator synchronized with Domain A.' },
-      { node_id: 'n-6', timestamp: new Date().toISOString(), level: 'WARN', message: 'High network latency detected on ctm-edge-01.' },
-      { node_id: 'n-6', timestamp: new Date().toISOString(), level: 'ERROR', message: 'Failed connection attempt to remote sink.' },
-    ]
-
-    for (const log of logsToSeed) {
-      await run(
-        'INSERT INTO node_logs (node_id, timestamp, level, message) VALUES (?, ?, ?, ?)',
-        [log.node_id, log.timestamp, log.level, log.message]
-      )
-    }
-
-    console.log('Initial SQLite database seeding complete.')
+    console.log('Initial SQLite database structure initialized.')
   }
 }
 
 /** Helper function to reconstruct hierarchical NavItem[] tree from database rows */
-export async function getNavTree() {
+export async function getNavTree(scheduledMap = null) {
   const rows = await all('SELECT * FROM nav_nodes ORDER BY sort_order ASC, id ASC')
   const fieldValues = await all('SELECT * FROM node_field_values')
   const valuesByNode = new Map()
@@ -391,6 +340,16 @@ export async function getNavTree() {
       const eavValues = valuesByNode.get(row.id) || {}
       customData = { ...customData, ...eavValues }
 
+      const scheduleConfigName = customData.schedule
+      let scheduledValue = 'N/A'
+      if (scheduleConfigName) {
+        if (scheduledMap && scheduledMap.has(scheduleConfigName)) {
+          scheduledValue = scheduledMap.get(scheduleConfigName)
+        } else {
+          scheduledValue = 'No'
+        }
+      }
+
       if (row.kind === 'item') {
         item.data = {
           kind: row.node_kind,
@@ -398,10 +357,12 @@ export async function getNavTree() {
           host: row.host,
           runs: row.runs,
           ...customData,
+          scheduled: scheduledValue,
         }
       } else {
         item.data = {
           ...customData,
+          scheduled: scheduledValue,
         }
         const subChildren = buildTree(row.id)
         if (subChildren.length > 0) {

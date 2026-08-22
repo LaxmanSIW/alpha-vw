@@ -15,7 +15,6 @@ import {
   RELATION_LABEL,
   edgeRelation,
   getRelationColor,
-  getRelationOutlineWidth,
   getRelations,
   relationOf,
 } from '../graph'

@@ -61,14 +61,14 @@ export async function createTableRow(table: string, data: Record<string, unknown
 }
 
 export async function bulkCreateRows(table: string, rows: Record<string, unknown>[]): Promise<{ success: boolean; count: number }> {
-  const res = await fetch(`${API_BASE}/crud/${encodeURIComponent(table)}/bulk`, {
+  const res = await fetch(`${API_BASE}/crud/bulk/${encodeURIComponent(table)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
   })
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.error || `Failed bulk insert into ${table}`)
+    throw new Error(errorData.error || `Failed bulk insert into ${table} (HTTP ${res.status})`)
   }
   return res.json()
 }
@@ -120,6 +120,24 @@ export async function deleteTableRow(table: string, id: string | number): Promis
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
     throw new Error(errorData.error || `Failed to delete record ${id} from ${table}`)
+  }
+  return res.json()
+}
+
+export interface BusinessDateResult {
+  /** The computed business date in YYYY-MM-DD format. */
+  businessDate: string
+  /** The configured day-start threshold, e.g. "03:00". */
+  dayStart: string
+  /** ISO timestamp of the server clock at request time. */
+  serverTime: string
+}
+
+export async function fetchBusinessDate(): Promise<BusinessDateResult> {
+  const res = await fetch(`${API_BASE}/business-date`)
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || 'Failed to fetch business date')
   }
   return res.json()
 }

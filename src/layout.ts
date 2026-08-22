@@ -293,6 +293,13 @@ export function buildFlowNodes(
       id: item.id,
       type: 'flat',
       position,
+      // Width must be explicit: the layout engine places nodes horizontally based
+      // on nodeWidth, so the DOM must match or nodes will visually overlap / gap.
+      // Height is intentionally NOT set: expanded cards grow with their content,
+      // so React Flow must measure the actual DOM to place the bottom handle
+      // (and thus the edge arrowhead) at the true card bottom. Passing the layout
+      // estimate caused the arrow to land inside the card when content exceeded it.
+      width: size?.width,
       ...(parentId ? { parentId } : {}),
       data: {
         label: item.label,

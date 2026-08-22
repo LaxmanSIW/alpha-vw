@@ -531,6 +531,7 @@ function DashboardShell() {
                 nodes={jobNodes}
                 selectedId={selectedNodeId}
                 onSelect={setSelectedNodeId}
+                fieldDefinitions={fieldDefinitions}
               />
             ) : (
               <FlowCanvas
