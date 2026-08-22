@@ -291,18 +291,10 @@ export async function initDb() {
     // Seed Modules
     await run('INSERT INTO modules (id, label) VALUES (?, ?)', ['architecture', 'Architecture'])
 
-    // Seed Viewpoints
+    // Seed Viewpoint (Single Default Viewpoint)
     await run(
       'INSERT INTO viewpoints (id, module_id, label, description, folder, job_count) VALUES (?, ?, ?, ?, ?, ?)',
-      ['arch-viewpoint_jobs', 'architecture', 'Viewpoint_jobs', 'Primary ingest and reconciliation flow', 'Alpha VW / Domain A', 0]
-    )
-    await run(
-      'INSERT INTO viewpoints (id, module_id, label, description, folder, job_count) VALUES (?, ?, ?, ?, ?, ?)',
-      ['arch-v2', 'architecture', 'v2', 'Candidate topology with split validation', 'Alpha VW / Domain B', 0]
-    )
-    await run(
-      'INSERT INTO viewpoints (id, module_id, label, description, folder, job_count) VALUES (?, ?, ?, ?, ?, ?)',
-      ['arch-shared', 'architecture', 'Shared', 'Cross-domain shared services', 'Alpha VW / Shared', 0]
+      ['default', 'architecture', 'Default', 'Default topology viewpoint', 'Alpha VW', 0]
     )
 
     console.log('Initial SQLite database structure initialized.')

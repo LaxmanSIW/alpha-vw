@@ -19,28 +19,12 @@ export const MODULES: ModuleTab[] = [
 
 export const VIEWPOINTS: Viewpoint[] = [
   {
-    id: 'arch-viewpoint_jobs',
+    id: 'default',
     moduleId: 'architecture',
-    label: 'Viewpoint_jobs',
-    description: 'Primary ingest and reconciliation flow',
-    folder: 'Alpha VW / Domain A',
-    jobCount: 8,
-  },
-  {
-    id: 'arch-v2',
-    moduleId: 'architecture',
-    label: 'v2',
-    description: 'Candidate topology with split validation',
-    folder: 'Alpha VW / Domain B',
-    jobCount: 8,
-  },
-  {
-    id: 'arch-shared',
-    moduleId: 'architecture',
-    label: 'Shared',
-    description: 'Cross-domain shared services',
-    folder: 'Alpha VW / Shared',
-    jobCount: 2,
+    label: 'Default',
+    description: 'Default topology viewpoint',
+    folder: 'Alpha VW',
+    jobCount: 0,
   },
 ]
 
