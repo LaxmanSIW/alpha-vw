@@ -21,14 +21,7 @@ interface ModalProps {
   children: ReactNode
   footer?: ReactNode
   hideCloseButton?: boolean
-}
-
-const SIZE_MAP: Record<NonNullable<ModalProps['size']>, string> = {
-  sm: 'w-[calc(100vw-3rem)] sm:max-w-xl h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
-  md: 'w-[calc(100vw-3rem)] sm:max-w-3xl h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
-  lg: 'w-[calc(100vw-3rem)] sm:max-w-5xl h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
-  xl: 'w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
-  '2xl': 'w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
+  fullScreen?: boolean
 }
 
 export default function Modal({
@@ -40,15 +33,29 @@ export default function Modal({
   children,
   footer,
   hideCloseButton = false,
+  fullScreen = true,
 }: ModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          // Enterprise full-viewport modal layout with uniform 1.5rem margin — maintains static dimensions across tab switches
-          'bg-surface text-text border border-border-strong p-0 gap-0',
-          'w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-[calc(100vw-3rem)] max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col',
-          SIZE_MAP[size],
+          // Enterprise flat design system — supports full screen dashboard layout or content-fit forms
+          'bg-surface text-text border border-border-strong p-0 gap-0 overflow-hidden flex flex-col',
+          fullScreen ? [
+            'w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-[calc(100vw-3rem)] max-h-[calc(100vh-3rem)]',
+            size === 'sm' && 'sm:max-w-xl',
+            size === 'md' && 'sm:max-w-3xl',
+            size === 'lg' && 'sm:max-w-5xl',
+            size === 'xl' && 'sm:max-w-[calc(100vw-3rem)]',
+            size === '2xl' && 'sm:max-w-[calc(100vw-3rem)]',
+          ] : [
+            'w-[calc(100vw-3rem)] h-auto max-h-[85vh]',
+            size === 'sm' && 'sm:max-w-xl',
+            size === 'md' && 'sm:max-w-3xl',
+            size === 'lg' && 'sm:max-w-5xl',
+            size === 'xl' && 'sm:max-w-6xl',
+            size === '2xl' && 'sm:max-w-7xl',
+          ]
         )}
         showCloseButton={false}
       >

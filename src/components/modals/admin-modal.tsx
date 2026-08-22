@@ -40,6 +40,31 @@ const TABLES: Array<{ id: CrudTable; label: string }> = [
   { id: 'app_config', label: 'App Config' },
 ]
 
+const TABLE_COLUMNS: Record<CrudTable, string[]> = {
+  modules: ['id', 'label'],
+  viewpoints: ['id', 'moduleId', 'label', 'description', 'folder', 'jobCount', 'scope', 'filterStatus', 'grouping', 'sortBy'],
+  nav_nodes: ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder', 'data'],
+  edges: ['id', 'source', 'target'],
+  node_logs: ['id', 'nodeId', 'timestamp', 'level', 'message'],
+  field_definitions: ['key', 'label', 'sectionTitle', 'role', 'format', 'sortOrder', 'isProtected', 'showOnCard', 'showInDetails', 'isActive'],
+  node_field_values: ['nodeId', 'fieldKey', 'fieldValue'],
+  calendars: ['id', 'name', 'workdays', 'holidays'],
+  schedule_configs: ['id', 'name', 'configData', 'lastEvaluatedDate', 'isScheduledToday'],
+  app_config: ['key', 'category', 'label', 'value', 'sortOrder'],
+}
+
+const STRICT_OPTIONS: Record<string, string[]> = {
+  kind: ['folder', 'job'],
+  nodeKind: ['job', 'folder'],
+  status: ['ok', 'warn', 'fail'],
+  showOnCard: ['Y', 'N'],
+  showInDetails: ['Y', 'N'],
+  showInList: ['Y', 'N'],
+  isActive: ['1', '0'],
+  isProtected: ['1', '0'],
+  isScheduledToday: ['Yes', 'No', 'N/A'],
+}
+
 export default function AdminModal() {
   const isOpen = useUIStore((s) => s.isAdminOpen)
   const close = useUIStore((s) => s.closeAdmin)
@@ -113,11 +138,14 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   }, [activeTable, load])
 
   const columns = useMemo(() => {
-    if (rows.length === 0) return [] as string[]
-    const set = new Set<string>()
-    for (const r of rows) for (const k of Object.keys(r)) set.add(k)
+    const set = new Set<string>(TABLE_COLUMNS[activeTable] ?? [])
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        set.add(k)
+      }
+    }
     return Array.from(set)
-  }, [rows])
+  }, [rows, activeTable])
 
   const onCreate = () => {
     setCreating(true)
@@ -216,16 +244,17 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
           </div>
         </div>
 
-        {(creating || editingId) && (
-          <EditForm
-            columns={columns}
-            form={editForm}
-            onChange={setEditForm}
-            onSave={onSave}
-            onCancel={onCancelEdit}
-            isCreate={creating}
-          />
-        )}
+        <EditRecordModal
+          isOpen={creating || !!editingId}
+          onClose={onCancelEdit}
+          tableName={activeTable}
+          columns={columns}
+          form={editForm}
+          onChange={setEditForm}
+          onSave={onSave}
+          isCreate={creating}
+          rows={rows}
+        />
 
         <div className="min-h-0 flex-1 overflow-auto">
           {loading && rows.length === 0 ? (
@@ -275,52 +304,112 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   )
 }
 
-function EditForm({
+function EditRecordModal({
+  isOpen,
+  onClose,
+  tableName,
   columns,
   form,
   onChange,
   onSave,
-  onCancel,
   isCreate,
+  rows,
 }: {
+  isOpen: boolean
+  onClose: () => void
+  tableName: string
   columns: string[]
   form: Record<string, unknown>
   onChange: (form: Record<string, unknown>) => void
   onSave: () => void
-  onCancel: () => void
   isCreate: boolean
+  rows: Record<string, unknown>[]
 }) {
   return (
-    <div className="border-b border-border bg-surface-sunken p-3 max-h-72 overflow-auto">
-      <div className="flex items-center justify-between mb-2">
-        <span className="label-caps">{isCreate ? 'Create New Record' : 'Edit Record'}</span>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="secondary" onClick={onCancel}><X size={11} strokeWidth={1.5} /> Cancel</Button>
-          <Button size="sm" variant="primary" onClick={onSave}><Check size={11} strokeWidth={1.5} /> Save</Button>
+    <Modal
+      open={isOpen}
+      onOpenChange={(o) => !o && onClose()}
+      title={isCreate ? `Create Record in ${tableName}` : `Edit Record in ${tableName}`}
+      description="Provide values for the fields. You can select existing values from the suggestions dropdown or enter custom values."
+      size="lg"
+      fullScreen={false}
+    >
+      <div className="flex flex-col h-auto max-h-[calc(85vh-8rem)]">
+        <div className="flex-1 overflow-y-auto p-4 min-h-0">
+          <div className="grid grid-cols-2 gap-4">
+            {columns.length === 0 ? (
+              <p className="text-xs text-text-muted col-span-2">No columns found for this table.</p>
+            ) : (
+              columns.map((c) => {
+                // If it has strict options, show Select dropdown
+                if (STRICT_OPTIONS[c]) {
+                  return (
+                    <Select
+                      key={c}
+                      label={c}
+                      value={String(form[c] ?? '')}
+                      onChange={(e) => onChange({ ...form, [c]: e.target.value })}
+                    >
+                      <option value="">-- Select --</option>
+                      {STRICT_OPTIONS[c].map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </Select>
+                  )
+                }
+
+                // Otherwise show Input with datalist for existing value suggestions
+                const suggestions = Array.from(
+                  new Set(
+                    rows
+                      .map((r) => String(r[c] ?? '').trim())
+                      .filter(Boolean)
+                  )
+                ).sort()
+
+                return (
+                  <div key={c} className="flex flex-col">
+                    <Input
+                      label={c}
+                      value={String(form[c] ?? '')}
+                      onChange={(e) => onChange({ ...form, [c]: e.target.value })}
+                      list={`datalist-${c}`}
+                    />
+                    {suggestions.length > 0 && (
+                      <datalist id={`datalist-${c}`}>
+                        {suggestions.map((val) => (
+                          <option key={val} value={val} />
+                        ))}
+                      </datalist>
+                    )}
+                  </div>
+                )
+              })
+            )}
+
+            {/* Fallback for id if no columns exist yet */}
+            {columns.length === 0 && (
+              <Input
+                label="id"
+                value={String(form.id ?? '')}
+                onChange={(e) => onChange({ ...form, id: e.target.value })}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface-sunken p-3">
+          <Button size="sm" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="primary" onClick={onSave}>
+            Save Record
+          </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {columns.length === 0 ? (
-          <p className="text-xs text-text-muted col-span-2">No columns yet. Fill in the fields below and save.</p>
-        ) : (
-          columns.map((c) => (
-            <Input
-              key={c}
-              label={c}
-              value={String(form[c] ?? '')}
-              onChange={(e) => onChange({ ...form, [c]: e.target.value })}
-            />
-          ))
-        )}
-        {columns.length === 0 && (
-          <Input
-            label="id"
-            value={String(form.id ?? '')}
-            onChange={(e) => onChange({ ...form, id: e.target.value })}
-          />
-        )}
-      </div>
-    </div>
+    </Modal>
   )
 }
 

@@ -153,7 +153,8 @@ export default function ViewScheduleModal({ isOpen, nodeLabel, scheduleName, onC
       onOpenChange={(o) => !o && onClose()}
       title={`Schedule: ${nodeLabel || '—'}`}
       description="Preview which days this schedule runs. Edit the JSON to test alternative configurations."
-      size="xl"
+      size="2xl"
+      fullScreen={false}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>Close</Button>
@@ -163,9 +164,9 @@ export default function ViewScheduleModal({ isOpen, nodeLabel, scheduleName, onC
         </>
       }
     >
-      <div className="flex h-full">
+      <div className="flex h-[680px] max-h-[calc(85vh-8rem)]">
         {/* Left: config selector + JSON editor */}
-        <div className="w-80 shrink-0 border-r border-border bg-surface-sunken overflow-auto p-3 flex flex-col gap-3">
+        <div className="w-80 shrink-0 border-r border-border bg-surface-sunken p-3 flex flex-col gap-3 h-full">
           <Select label="Schedule Config" value={selectedName} onChange={(e) => onSelectConfig(e.target.value)}>
             {configs.map((c) => (
               <option key={c.id} value={c.name}>{c.name}</option>
@@ -183,13 +184,13 @@ export default function ViewScheduleModal({ isOpen, nodeLabel, scheduleName, onC
             />
             {evaluating && <span className="text-[10px] text-text-muted">evaluating…</span>}
           </div>
-          <div>
+          <div className="flex-1 flex flex-col min-h-0">
             <label className="text-[11px] font-medium text-text-muted block mb-1">Config JSON (live preview)</label>
             <textarea
               value={currentConfigRaw}
               onChange={(e) => onConfigChange(e.target.value)}
               spellCheck={false}
-              className="w-full h-96 px-2 py-1.5 text-[11px] font-mono bg-surface border border-border-strong text-text focus:border-primary outline-none resize-none"
+              className="w-full flex-1 min-h-0 px-2 py-1.5 text-[11px] font-mono bg-surface border border-border-strong text-text focus:border-primary outline-none resize-none"
             />
           </div>
         </div>
@@ -200,7 +201,7 @@ export default function ViewScheduleModal({ isOpen, nodeLabel, scheduleName, onC
             <span className="label-caps">{year} Schedule Preview</span>
             <span className="text-xs text-text-muted">{eligibleDates.size} eligible days</span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {MONTHS.map((_, monthIdx) => (
               <MonthGrid key={monthIdx} year={year} month={monthIdx} eligibleDates={eligibleDates} />
             ))}

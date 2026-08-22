@@ -12,18 +12,18 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, id, children, ...rest }, ref) => {
     const selectId = id || `select-${label?.replace(/\s+/g, '-').toLowerCase()}`
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 w-full">
         {label && (
           <label htmlFor={selectId} className="text-[11px] font-medium text-text-muted">
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative w-full">
           <select
             ref={ref}
             id={selectId}
             className={cn(
-              'h-[var(--control-h)] pl-2 pr-7 text-xs bg-surface border border-border-strong text-text appearance-none',
+              'w-full h-[var(--control-h)] pl-2 pr-7 text-xs bg-surface border border-border-strong text-text appearance-none',
               'focus:border-primary focus:outline-none',
               className,
             )}

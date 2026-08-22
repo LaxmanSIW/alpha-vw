@@ -54,10 +54,12 @@ export default function TopHeader({ modules, activeModuleId, onModuleChange }: T
     <header className="flex h-[var(--header-h)] shrink-0 items-center justify-between border-b border-border bg-surface px-3">
       {/* Left: brand + modules */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="flex items-center gap-1.5 pr-3 border-r border-border">
-          <div className="size-5 bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs">
-            α
-          </div>
+        <div className="flex items-center gap-2 pr-3 border-r border-border h-full">
+          {/* Logo mark: overlapping squares, deliberately sharp-cornered */}
+          <span aria-hidden="true" className="relative block size-4 shrink-0">
+            <span className="absolute top-0 left-0 size-3 bg-primary" />
+            <span className="absolute right-0 bottom-0 size-3 bg-accent" />
+          </span>
           <span className="font-semibold text-sm tracking-tight text-text">Alpha VW</span>
         </div>
 

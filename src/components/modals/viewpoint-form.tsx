@@ -133,6 +133,7 @@ export default function ViewpointForm({ mode }: ViewpointFormProps) {
       title={mode === 'create' ? 'Create Viewpoint' : `Edit Viewpoint: ${editingViewpoint?.label ?? ''}`}
       description="A viewpoint is a saved lens on the topology."
       size="lg"
+      fullScreen={false}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
