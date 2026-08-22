@@ -19,6 +19,7 @@ import {
   isShowable,
 } from '@/lib/fields'
 import { useAppConfig } from '@/lib/app-config'
+import { useDashboardStore } from '@/lib/stores/dashboard-store'
 import type { FieldDefinition } from '@/lib/types'
 
 export interface FlatNodeData extends Record<string, unknown> {
@@ -47,42 +48,54 @@ interface FlatNodeProps extends NodeProps {
  *     original had `node` in deps, which is a new ref every render.
  *   - getLayout() is read from Zustand selector (re-renders when config changes)
  */
+
 function FlatNodeInner({ id, data, selected }: FlatNodeProps) {
   const node = data as FlatNodeData
   const { expanded = false, relation = 'none' } = node
 
-  // Subscribe to layout config so we re-render when it changes
+  // Subscribe to layout config and dashboard store field definitions
   const layout = useAppConfig((s) => s.config.layout)
+  const storeFieldDefs = useDashboardStore((s) => s.fieldDefinitions)
 
   const stripe = statusHex(node[STATUS_KEY])
 
-  const dynamicFieldDefs = ((node as Record<string, unknown>).fieldDefinitions ?? []) as FieldDefinition[]
+  const fieldDefs = useMemo(() => {
+    const source =
+      storeFieldDefs.length > 0
+        ? storeFieldDefs
+        : (((node as Record<string, unknown>).fieldDefinitions ?? []) as FieldDefinition[])
+    return source.filter((f) => f.isActive !== 0 && f.isActive !== false)
+  }, [storeFieldDefs, node])
 
-  // Memoize field filters — only depend on dynamicFieldDefs (stable ref)
+  // Memoize field filters — react dynamically to added/deleted field definitions
   const activeDetailFields = useMemo(() => {
-    if (dynamicFieldDefs.length > 0) {
-      return dynamicFieldDefs.filter((f) => {
-        const role = f.role || 'detail'
-        if (role === 'title' || role === 'subtitle' || role === 'none') return false
-        return isShowable(f.showOnCard)
-      })
+    if (fieldDefs.length > 0) {
+      return fieldDefs
+        .filter((f) => {
+          const role = f.role || 'detail'
+          if (role === 'title' || role === 'subtitle' || role === 'none') return false
+          return isShowable(f.showOnCard)
+        })
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     }
     return DETAIL_FIELDS.filter((field) => isShowable(field.showOnCard))
-  }, [dynamicFieldDefs])
+  }, [fieldDefs])
 
   const titleFields = useMemo(() => {
-    if (dynamicFieldDefs.length > 0) {
-      return dynamicFieldDefs.filter((f) => f.role === 'title' && isShowable(f.showOnCard))
+    if (fieldDefs.length > 0) {
+      const match = fieldDefs.filter((f) => f.role === 'title' && isShowable(f.showOnCard))
+      if (match.length > 0) return match
     }
     return TITLE_FIELD ? [TITLE_FIELD] : []
-  }, [dynamicFieldDefs])
+  }, [fieldDefs])
 
   const subtitleFields = useMemo(() => {
-    if (dynamicFieldDefs.length > 0) {
-      return dynamicFieldDefs.filter((f) => f.role === 'subtitle' && isShowable(f.showOnCard))
+    if (fieldDefs.length > 0) {
+      const match = fieldDefs.filter((f) => f.role === 'subtitle' && isShowable(f.showOnCard))
+      if (match.length > 0) return match
     }
     return SUBTITLE_FIELD ? [SUBTITLE_FIELD] : []
-  }, [dynamicFieldDefs])
+  }, [fieldDefs])
 
   const isRelated = relation !== 'none'
   const relationColor = isRelated ? getRelationColor(relation as Exclude<RelationKind, 'none'>) : undefined

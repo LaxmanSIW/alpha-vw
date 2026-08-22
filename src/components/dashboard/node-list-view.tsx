@@ -4,7 +4,8 @@ import { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, GripVertical, Download, Columns3 } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 import type { FieldDefinition } from '@/lib/types'
-import { formatFieldValue, statusHex, statusBadgeStyle } from '@/lib/fields'
+import { formatFieldValue, statusHex, statusBadgeStyle, isShowable } from '@/lib/fields'
+import { useDashboardStore } from '@/lib/stores/dashboard-store'
 import { useAppConfig } from '@/lib/app-config'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +38,9 @@ interface ColumnDef {
 }
 
 export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinitions }: NodeListViewProps) {
+  const storeFieldDefs = useDashboardStore((s) => s.fieldDefinitions)
+  const activeDefs = storeFieldDefs.length > 0 ? storeFieldDefs : fieldDefinitions
+
   const [columns, setColumns] = useState<ColumnDef[]>(() => {
     if (typeof localStorage !== 'undefined') {
       try {
@@ -54,6 +58,34 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
   const [showColumnChooser, setShowColumnChooser] = useState(false)
   const [dragOver, setDragOver] = useState<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
+
+  // Dynamically sync list view columns when field definitions are created or deleted
+  useEffect(() => {
+    setColumns((prevCols) => {
+      const baseKeys = new Set(['label', 'status', 'host', 'runs', 'scheduled', 'schedule', 'kind', '__id'])
+      const activeDefKeys = new Set(
+        activeDefs.filter((f) => f.isActive !== 0 && f.isActive !== false).map((f) => f.key),
+      )
+
+      // Keep base columns + currently active field definition columns (removes deleted fields)
+      const updated = prevCols.filter((c) => baseKeys.has(c.key) || activeDefKeys.has(c.key))
+      const existingKeys = new Set(updated.map((c) => c.key))
+
+      // Append newly created active field definitions
+      for (const f of activeDefs) {
+        if (f.isActive !== 0 && f.isActive !== false && !existingKeys.has(f.key)) {
+          updated.push({
+            key: f.key,
+            label: f.label,
+            width: 140,
+            sortable: true,
+            visible: isShowable(f.showInDetails),
+          })
+        }
+      }
+      return updated
+    })
+  }, [activeDefs])
 
   // Persist columns
   useEffect(() => {

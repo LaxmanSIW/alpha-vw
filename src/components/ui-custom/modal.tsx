@@ -24,11 +24,11 @@ interface ModalProps {
 }
 
 const SIZE_MAP: Record<NonNullable<ModalProps['size']>, string> = {
-  sm: 'sm:max-w-md',
-  md: 'sm:max-w-lg',
-  lg: 'sm:max-w-2xl',
-  xl: 'sm:max-w-4xl',
-  '2xl': 'sm:max-w-6xl',
+  sm: 'w-[calc(100vw-3rem)] sm:max-w-xl h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
+  md: 'w-[calc(100vw-3rem)] sm:max-w-3xl h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
+  lg: 'w-[calc(100vw-3rem)] sm:max-w-5xl h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
+  xl: 'w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
+  '2xl': 'w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)]',
 }
 
 export default function Modal({
@@ -45,9 +45,9 @@ export default function Modal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          // Override shadcn defaults to use our enterprise tokens (flat, no shadow, no radius)
+          // Enterprise full-viewport modal layout with uniform 1.5rem margin — maintains static dimensions across tab switches
           'bg-surface text-text border border-border-strong p-0 gap-0',
-          'max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col',
+          'w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-w-[calc(100vw-3rem)] max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col',
           SIZE_MAP[size],
         )}
         showCloseButton={false}

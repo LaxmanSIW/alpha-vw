@@ -115,12 +115,29 @@ function DashboardShell() {
 
   const focusNode = (nodeId: string) => {
     setSelectedNodeId(nodeId)
+    // Expand parent folders if node is nested in a folder
+    const findAndExpandParents = (items: NavItem[], path: string[] = []): boolean => {
+      for (const item of items) {
+        if (item.id === nodeId) {
+          for (const folderId of path) {
+            useDashboardStore.getState().toggleNavExpand(folderId)
+          }
+          return true
+        }
+        if (item.kind === 'folder' && item.children) {
+          if (findAndExpandParents(item.children, [...path, item.id])) return true
+        }
+      }
+      return false
+    }
+    findAndExpandParents(activeNavTree)
+
     const node = nodes.find((n) => n.id === nodeId)
     const absolute = absolutePositionOf(nodeId, nodes)
     if (!node || !absolute) return
     const width = layout.sizes.get(nodeId)?.width ?? 176
     const height = layout.sizes.get(nodeId)?.height ?? 48
-    setCenter(absolute.x + width / 2, absolute.y + height / 2, { zoom: getZoom(), duration: 250 })
+    setCenter(absolute.x + width / 2, absolute.y + height / 2, { zoom: Math.max(getZoom(), 0.8), duration: 300 })
   }
 
   // ── Context menu handlers ────────────────────────────────────────────
@@ -188,7 +205,7 @@ function DashboardShell() {
         options: CONTEXT_MENU_ACTIONS,
       },
       actionId,
-      adjacency,
+      activeEdges,
       map,
     )
 
@@ -431,7 +448,11 @@ function DashboardShell() {
             setContextMenu(null)
             setContextList(null)
           }}
-          onSelectNode={setSelectedNodeId}
+          onSelectNode={(nodeId) => {
+            focusNode(nodeId)
+            setContextMenu(null)
+            setContextList(null)
+          }}
           onSelectAction={onContextAction}
         />
       )}
@@ -443,7 +464,7 @@ function DashboardShell() {
             setContextList(null)
           }}
           onSelectNode={(nodeId) => {
-            setSelectedNodeId(nodeId)
+            focusNode(nodeId)
             setContextMenu(null)
             setContextList(null)
           }}

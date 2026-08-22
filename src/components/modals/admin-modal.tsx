@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Database, Upload, HelpCircle, Plus, Trash2, Pencil, X, Check } from 'lucide-react'
+import { Database, Upload, HelpCircle, Plus, Trash2, Pencil, X, Check, FileDown, Copy, CheckCircle2 } from 'lucide-react'
 import Modal from '@/components/ui-custom/modal'
 import Button from '@/components/ui-custom/button'
 import Input from '@/components/ui-custom/input'
@@ -126,14 +126,14 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   }
 
   const onEdit = (row: Record<string, unknown>) => {
-    const id = String(row.id ?? row.key ?? '')
+    const id = row.nodeId && row.fieldKey ? `${row.nodeId}__${row.fieldKey}` : String(row.id ?? row.key ?? '')
     setEditingId(id)
     setCreating(false)
     setEditForm({ ...row })
   }
 
   const onSave = async () => {
-    if (activeTable === 'node_field_values' && !editForm.nodeId && !editForm.fieldKey) {
+    if (activeTable === 'node_field_values' && (!editForm.nodeId || !editForm.fieldKey)) {
       toast.error('nodeId and fieldKey are required for node_field_values')
       return
     }
@@ -156,7 +156,7 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   }
 
   const onDelete = async (row: Record<string, unknown>) => {
-    const id = String(row.id ?? row.key ?? '')
+    const id = row.nodeId && row.fieldKey ? `${row.nodeId}__${row.fieldKey}` : String(row.id ?? row.key ?? '')
     if (!window.confirm(`Delete record ${id}?`)) return
     try {
       await deleteTableRow(activeTable, id)
@@ -244,7 +244,7 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
               </thead>
               <tbody>
                 {rows.map((row, idx) => {
-                  const id = String(row.id ?? row.key ?? idx)
+                  const id = row.nodeId && row.fieldKey ? `${row.nodeId}__${row.fieldKey}` : String(row.id ?? row.key ?? idx)
                   const isEditing = editingId === id
                   return (
                     <tr key={id} className={cn('border-b border-border hover:bg-surface-hover', isEditing && 'opacity-40')}>
@@ -324,6 +324,114 @@ function EditForm({
   )
 }
 
+// ─── Sample CSV templates per table ─────────────────────────────────────
+// Users can load these to see the expected column format.
+
+const SAMPLE_CSV: Record<CrudTable, { headers: string[]; rows: string[][] }> = {
+  modules: {
+    headers: ['id', 'label'],
+    rows: [
+      ['architecture', 'Architecture'],
+      ['data-ingestion', 'Data Ingestion'],
+      ['reporting', 'Reporting'],
+    ],
+  },
+  viewpoints: {
+    headers: ['id', 'moduleId', 'label', 'description', 'folder', 'jobCount', 'scope', 'filterStatus', 'grouping', 'sortBy'],
+    rows: [
+      ['vp-default', 'architecture', 'Default', 'All jobs across all folders', null, '0', 'Public', 'All', 'Folder', 'label'],
+      ['vp-critical', 'architecture', 'Critical Path', 'Critical path jobs only', null, '0', 'Public', 'All', 'Folder', 'label'],
+    ],
+  },
+  nav_nodes: {
+    headers: ['id', 'label', 'kind', 'parent_id', 'node_kind', 'status', 'host', 'runs', 'sort_order'],
+    rows: [
+      ['F-ROOT', 'Banking Jobs', 'folder', '', null, null, null, null, '0'],
+      ['F-01', 'Ingestion', 'folder', 'F-ROOT', null, null, null, null, '0'],
+      ['J-01', 'Load Customer Data', 'item', 'F-01', 'Source', 'Completed', 'server-01', '142', '0'],
+      ['J-02', 'Load Transaction Log', 'item', 'F-01', 'Source', 'Completed', 'server-01', '98', '0'],
+      ['F-02', 'Processing', 'folder', 'F-ROOT', null, null, null, null, '0'],
+      ['J-03', 'Validate Transactions', 'item', 'F-02', 'Process', 'Executing', 'server-02', '67', '0'],
+    ],
+  },
+  edges: {
+    headers: ['id', 'source', 'target'],
+    rows: [
+      ['E-01', 'J-01', 'J-03'],
+      ['E-02', 'J-02', 'J-03'],
+    ],
+  },
+  field_definitions: {
+    headers: ['key', 'label', 'sectionTitle', 'role', 'format', 'sortOrder', 'isProtected', 'showOnCard', 'showInDetails', 'isActive'],
+    rows: [
+      ['id', 'Node ID', 'Identity', 'detail', 'mono', '1', '1', 'N', 'Y', '1'],
+      ['label', 'Label', 'Identity', 'title', 'text', '2', '1', 'Y', 'Y', '1'],
+      ['kind', 'Kind', 'Identity', 'subtitle', 'text', '3', '1', 'Y', 'Y', '1'],
+      ['status', 'Status', 'State', 'detail', 'status', '6', '1', 'Y', 'Y', '1'],
+      ['host', 'Host', 'Execution', 'detail', 'mono', '7', '0', 'Y', 'Y', '1'],
+    ],
+  },
+  node_field_values: {
+    headers: ['nodeId', 'fieldKey', 'fieldValue'],
+    rows: [
+      ['J-01', 'schedule', 'DAILY_PROD_RUN'],
+      ['J-03', 'schedule', 'END_OF_MONTH_RUN'],
+    ],
+  },
+  node_logs: {
+    headers: ['id', 'nodeId', 'timestamp', 'level', 'message'],
+    rows: [
+      ['1', 'J-03', '2026-08-22 10:30:00', 'INFO', 'Execution started'],
+      ['2', 'J-03', '2026-08-22 10:35:12', 'INFO', 'Processed 1,204 records'],
+    ],
+  },
+  calendars: {
+    headers: ['id', 'name', 'workdays', 'holidays'],
+    rows: [
+      ['cal-regular', 'REGULAR', '[1,2,3,4,5]', '["2026-01-01","2026-12-25"]'],
+      ['cal-mfd9h', 'MFD9H', '[1,2,3,4,5,6]', '["2026-01-01","2026-12-25"]'],
+    ],
+  },
+  schedule_configs: {
+    headers: ['id', 'name', 'configData', 'lastEvaluatedDate', 'isScheduledToday'],
+    rows: [
+      ['sched-daily', 'DAILY_PROD_RUN', '{"WEEKDAYS":["1","2","3","4","5"],"MONTHS":["ALL"],"ACTIVITY_PERIOD":{"MODE":"ALWAYS"}}', null, 'N/A'],
+    ],
+  },
+  app_config: {
+    headers: ['key', 'category', 'label', 'value', 'sortOrder'],
+    rows: [
+      ['status.completed', 'status', 'Completed', '{"hex":"#22c55e","aliases":["ok","completed","success"]}', '1'],
+      ['status.executing', 'status', 'Executing', '{"hex":"#f97316","aliases":["executing","running"]}', '2'],
+      ['status.failed', 'status', 'Failed', '{"hex":"#f43f5e","aliases":["failed","error"]}', '3'],
+    ],
+  },
+}
+
+function buildSampleCSV(table: CrudTable): string {
+  const sample = SAMPLE_CSV[table]
+  if (!sample) return ''
+  const headerLine = sample.headers.join(',')
+  const dataLines = sample.rows.map((r) => r.map((cell) => {
+    // Quote cells that contain commas, quotes, or newlines
+    if (cell && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+      return `"${cell.replace(/"/g, '""')}"`
+    }
+    return cell ?? ''
+  }).join(',')).join('\n')
+  return `${headerLine}\n${dataLines}`
+}
+
+function downloadCSV(filename: string, csvContent: string) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ─── CSV import tab ─────────────────────────────────────────────────────────
 
 function CsvImportTab({ onDataChanged }: { onDataChanged: () => void }) {
@@ -332,7 +440,42 @@ function CsvImportTab({ onDataChanged }: { onDataChanged: () => void }) {
   const [parsedHeaders, setParsedHeaders] = useState<string[]>([])
   const [fileName, setFileName] = useState<string>('')
   const [importing, setImporting] = useState(false)
+  const [copied, setCopied] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const sampleCSV = useMemo(() => buildSampleCSV(targetTable), [targetTable])
+  const hasSample = sampleCSV.length > 0
+
+  const loadSample = () => {
+    const csv = sampleCSV
+    const rows = parseCSV(csv)
+    if (rows.length === 0) return
+    const headers = rows[0].map((h) => h.replace(/^\uFEFF/, '').trim())
+    const data = rows.slice(1).filter((r) => r.some((c) => c !== '')).map((r) => {
+      const obj: Record<string, string> = {}
+      headers.forEach((h, i) => { obj[h] = r[i] ?? '' })
+      return obj
+    })
+    setParsedHeaders(headers)
+    setParsedRows(data)
+    setFileName(`sample_${targetTable}.csv`)
+    toast.success(`Loaded sample data for ${targetTable} — ${data.length} rows. Edit or import directly.`)
+  }
+
+  const onCopySample = async () => {
+    try {
+      await navigator.clipboard.writeText(sampleCSV)
+      setCopied(true)
+      toast.success('Sample CSV copied to clipboard')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Failed to copy')
+    }
+  }
+
+  const onDownloadSample = () => {
+    downloadCSV(`sample_${targetTable}.csv`, sampleCSV)
+  }
 
   const onFile = async (file: File) => {
     setFileName(file.name)
@@ -377,7 +520,7 @@ function CsvImportTab({ onDataChanged }: { onDataChanged: () => void }) {
   return (
     <div className="p-4 space-y-3 max-w-5xl">
       <div className="grid grid-cols-2 gap-3">
-        <Select label="Target Table" value={targetTable} onChange={(e) => setTargetTable(e.target.value as CrudTable)}>
+        <Select label="Target Table" value={targetTable} onChange={(e) => { setTargetTable(e.target.value as CrudTable); setParsedRows([]); setParsedHeaders([]); setFileName('') }}>
           {TABLES.map((t) => (
             <option key={t.id} value={t.id}>{t.label}</option>
           ))}
@@ -392,6 +535,23 @@ function CsvImportTab({ onDataChanged }: { onDataChanged: () => void }) {
             className="text-xs file:mr-2 file:h-[var(--control-h)] file:px-2 file:text-xs file:bg-surface file:text-text file:border file:border-border-strong file:hover:bg-surface-hover file:cursor-pointer"
           />
         </div>
+      </div>
+
+      {/* Sample data actions */}
+      <div className="flex items-center gap-2 border border-border rounded p-2.5 bg-surface-sunken/50">
+        <span className="text-[11px] font-medium text-text-muted whitespace-nowrap">Sample data:</span>
+        <Button size="sm" variant="primary" onClick={loadSample} disabled={!hasSample}>
+          <CheckCircle2 size={12} strokeWidth={1.5} /> Load Sample
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onDownloadSample} disabled={!hasSample}>
+          <FileDown size={12} strokeWidth={1.5} /> Download .csv
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onCopySample} disabled={!hasSample || copied}>
+          {copied ? <Check size={12} strokeWidth={1.5} /> : <Copy size={12} strokeWidth={1.5} />}
+          {copied ? 'Copied!' : 'Copy'}
+        </Button>
+        <div className="flex-1" />
+        <span className="text-[10px] text-text-muted italic">Loads example rows so you can see the expected format</span>
       </div>
 
       {fileName && (

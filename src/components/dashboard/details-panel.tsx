@@ -18,6 +18,7 @@ import {
 import { useAppConfig } from '@/lib/app-config'
 import { resolveStatus } from '@/lib/app-config'
 import { fetchNodeLogs, type NodeLogEntry } from '@/lib/api-client'
+import { useDashboardStore } from '@/lib/stores/dashboard-store'
 import { cn } from '@/lib/utils'
 
 interface DetailsPanelProps {
@@ -126,18 +127,43 @@ function FieldsTab({
   selectedNode: Node
   onOpenViewSchedule: (nodeId: string) => void
 }) {
-  // Subscribe to app config (for status display)
-  const statuses = useAppConfig((s) => s.config.statuses)
-  const fieldDefinitions = useAppConfig((s) => s.config) // placeholder; actual fd from store
+  const storeFieldDefs = useDashboardStore((s) => s.fieldDefinitions)
 
-  // Build sections — combine static DETAILS_TABS sections with dynamic EAV
+  // Build sections — combine dynamic EAV field definitions with static defaults
   const sections = useMemo(() => {
+    const activeDefs = storeFieldDefs.filter(
+      (f) => f.isActive !== 0 && f.isActive !== false && isShowable(f.showInDetails),
+    )
+
+    if (activeDefs.length > 0) {
+      const map = new Map<string, FieldDef[]>()
+      for (const f of activeDefs) {
+        const title = f.sectionTitle || 'General'
+        if (!map.has(title)) map.set(title, [])
+        map.get(title)!.push({
+          key: f.key,
+          label: f.label,
+          sectionTitle: title,
+          format: f.format,
+          isProtected: Boolean(f.isProtected),
+          showOnCard: f.showOnCard,
+          showInDetails: f.showInDetails,
+          role: f.role,
+          sortOrder: f.sortOrder,
+        })
+      }
+      return Array.from(map.entries()).map(([title, fields]) => ({
+        title,
+        fields: fields.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+      }))
+    }
+
     const sectionsMap = new Map<string, FieldDef[]>()
     for (const section of tab.sections ?? []) {
       sectionsMap.set(section.title, [...section.fields])
     }
     return Array.from(sectionsMap.entries()).map(([title, fields]) => ({ title, fields }))
-  }, [tab])
+  }, [storeFieldDefs, tab])
 
   return (
     <div className="p-2">

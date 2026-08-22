@@ -79,27 +79,27 @@ export const bulkCreateSchema = z.object({
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-/** camelCase → snake_case normalization for legacy column names. */
+/** Normalize legacy snake_case column names to camelCase matching Prisma models. */
 function normalizeKey(k: string): string {
   const mapping: Record<string, string> = {
-    sectionTitle: 'section_title',
-    sortOrder: 'sort_order',
-    isProtected: 'is_protected',
-    showOnCard: 'show_on_card',
-    showInDetails: 'show_in_details',
-    isActive: 'is_active',
-    filterStatus: 'filter_status',
-    sortBy: 'sort_by',
-    nodeKind: 'node_kind',
-    jobCount: 'job_count',
-    moduleId: 'module_id',
-    parentId: 'parent_id',
-    configData: 'config_data',
-    lastEvaluatedDate: 'last_evaluated_date',
-    isScheduledToday: 'is_scheduled_today',
-    fieldValue: 'field_value',
-    fieldKey: 'field_key',
-    nodeId: 'node_id',
+    section_title: 'sectionTitle',
+    sort_order: 'sortOrder',
+    is_protected: 'isProtected',
+    show_on_card: 'showOnCard',
+    show_in_details: 'showInDetails',
+    is_active: 'isActive',
+    filter_status: 'filterStatus',
+    sort_by: 'sortBy',
+    node_kind: 'nodeKind',
+    job_count: 'jobCount',
+    module_id: 'moduleId',
+    parent_id: 'parentId',
+    config_data: 'configData',
+    last_evaluated_date: 'lastEvaluatedDate',
+    is_scheduled_today: 'isScheduledToday',
+    field_value: 'fieldValue',
+    field_key: 'fieldKey',
+    node_id: 'nodeId',
   }
   return mapping[k] ?? k
 }
@@ -117,12 +117,32 @@ export function normalizeRecord(table: CrudTable, rawData: Record<string, unknow
     result[normalized] = val
   }
 
-  // Convert booleans to integers for is_protected / is_active
-  if ('is_protected' in result && typeof result.is_protected === 'boolean') {
-    result.is_protected = result.is_protected ? 1 : 0
+  // Convert booleans / strings to integers/floats for Prisma schema types
+  if ('isProtected' in result && result.isProtected !== null && result.isProtected !== undefined) {
+    if (typeof result.isProtected === 'boolean') {
+      result.isProtected = result.isProtected ? 1 : 0
+    } else {
+      result.isProtected = Math.round(Number(result.isProtected)) || 0
+    }
   }
-  if ('is_active' in result && typeof result.is_active === 'boolean') {
-    result.is_active = result.is_active ? 1 : 0
+  if ('isActive' in result && result.isActive !== null && result.isActive !== undefined) {
+    if (typeof result.isActive === 'boolean') {
+      result.isActive = result.isActive ? 1 : 0
+    } else {
+      result.isActive = Math.round(Number(result.isActive)) || 0
+    }
+  }
+  if ('sortOrder' in result && result.sortOrder !== null && result.sortOrder !== undefined && result.sortOrder !== '') {
+    result.sortOrder = Number(result.sortOrder)
+  }
+  if ('jobCount' in result && result.jobCount !== null && result.jobCount !== undefined && result.jobCount !== '') {
+    result.jobCount = Math.round(Number(result.jobCount))
+  }
+  if ('runs' in result && result.runs !== null && result.runs !== undefined && result.runs !== '') {
+    result.runs = Math.round(Number(result.runs))
+  }
+  if (table === 'node_logs' && 'id' in result && result.id !== null && result.id !== undefined && result.id !== '') {
+    result.id = Math.round(Number(result.id))
   }
 
   // For edges, only keep the three allowed columns
@@ -171,7 +191,7 @@ export function prepareNavNodeRecord(rawData: Record<string, unknown>): Record<s
 /** Write non-fixed nav_node fields to the node_field_values EAV table. */
 export async function syncNodeFieldValues(nodeId: string, rawData: Record<string, unknown>): Promise<void> {
   if (!nodeId || !rawData) return
-  const ignore = new Set(['id', 'label', 'kind', 'parentId', 'sortOrder', 'data'])
+  const ignore = new Set(['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder', 'data'])
   for (const [key, value] of Object.entries(rawData)) {
     if (ignore.has(key)) continue
     if (value === null || value === undefined || value === '') continue
