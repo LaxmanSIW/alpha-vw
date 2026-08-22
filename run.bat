@@ -134,6 +134,15 @@ if /I "!DEPS!"=="y" (
 
 :: 2. Start server based on environment configuration
 if /I "!ENV!"=="p" (
+    echo 📂 Copying static assets for standalone server...
+    if exist .next\standalone (
+        if exist .next\static (
+            xcopy /y /e /i /q .next\static .next\standalone\.next\static
+        )
+        if exist public (
+            xcopy /y /e /i /q public .next\standalone\public
+        )
+    )
     echo 🚀 Starting standalone production server on port !PORT!...
     set NODE_ENV=production
     set PORT=!PORT!
