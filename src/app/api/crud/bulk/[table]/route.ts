@@ -38,27 +38,33 @@ export async function POST(
   try {
     let insertedCount = 0
 
-    // Use a single transaction — atomic insert or rollback
-    await db.$transaction(async (tx) => {
-      for (const rawRow of parsed.data.rows) {
-        const rowData = normalizeRecord(table as CrudTable, rawRow)
-        if (Object.keys(rowData).length === 0) continue
+    // Use a single transaction — atomic insert or rollback with extended timeout for large datasets
+    await db.$transaction(
+      async (tx) => {
+        for (const rawRow of parsed.data.rows) {
+          const rowData = normalizeRecord(table as CrudTable, rawRow)
+          if (Object.keys(rowData).length === 0) continue
 
-        let recordData: Record<string, unknown> = rowData
-        if (table === 'nav_nodes') {
-          recordData = prepareNavNodeRecord(rowData)
+          let recordData: Record<string, unknown> = rowData
+          if (table === 'nav_nodes') {
+            recordData = prepareNavNodeRecord(rowData)
+          }
+
+          // Use upsert semantics (insert-or-replace) so re-imports don't fail
+          await upsertRow(tx, table as CrudTable, recordData)
+
+          if (table === 'nav_nodes') {
+            const id = String(recordData.id ?? rawRow.id)
+            if (id) await syncNodeFieldValues(id, rawRow, tx)
+          }
+          insertedCount++
         }
-
-        // Use upsert semantics (insert-or-replace) so re-imports don't fail
-        await upsertRow(tx, table as CrudTable, recordData)
-
-        if (table === 'nav_nodes') {
-          const id = String(recordData.id ?? rawRow.id)
-          if (id) await syncNodeFieldValues(id, rawRow)
-        }
-        insertedCount++
-      }
-    })
+      },
+      {
+        maxWait: 10000,
+        timeout: 60000,
+      },
+    )
 
     await invalidateScheduleCache(table as CrudTable)
     return NextResponse.json({ success: true, count: insertedCount })

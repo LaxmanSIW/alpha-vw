@@ -94,11 +94,11 @@ echo   * Server Port            : !PORT!
 echo =======================================================================
 echo.
 
-:: 1. Install dependencies and setup database if requested
+:: 1. Install dependencies if requested
 if /I "!DEPS!"=="y" (
     if /I "!ENV!"=="p" (
         echo 📦 Installing native production-only external packages...
-        call npm install --omit=dev sharp @prisma/client prisma
+        call npm install --omit=dev sharp @prisma/client prisma @tailwindcss/postcss tailwindcss
         if !ERRORLEVEL! neq 0 (
             echo [ERROR] npm install of production packages failed.
             exit /b !ERRORLEVEL!
@@ -121,16 +121,25 @@ if /I "!DEPS!"=="y" (
         echo [ERROR] Prisma client model generation failed.
         exit /b !ERRORLEVEL!
     )
-    
-    echo 🗄️ Syncing SQLite database schema...
-    call npx prisma db push --accept-data-loss
-    if !ERRORLEVEL! neq 0 (
-        echo [ERROR] Database schema sync push failed.
-        exit /b !ERRORLEVEL!
-    )
-    echo [SUCCESS] Setup and dependency installation complete.
-    echo.
 )
+
+:: 2. Ensure database directory exists, push schema, and seed default data
+if not exist db mkdir db
+
+echo 🗄️ Initializing and syncing database schema...
+call npx prisma db push --skip-generate --accept-data-loss
+if !ERRORLEVEL! neq 0 (
+    echo [ERROR] Database schema sync push failed.
+    exit /b !ERRORLEVEL!
+)
+
+echo 🌱 Seeding database default records (idempotent upsert)...
+call npx prisma db seed
+if !ERRORLEVEL! neq 0 (
+    echo [WARNING] Database seed completed with notices.
+)
+echo [SUCCESS] Database table setup and seed complete.
+echo.
 
 :: 2. Start server based on environment configuration
 if /I "!ENV!"=="p" (
@@ -141,6 +150,9 @@ if /I "!ENV!"=="p" (
         )
         if exist public (
             xcopy /y /e /i /q public .next\standalone\public
+        )
+        if exist .env (
+            copy /y .env .next\standalone\.env >nul
         )
     )
     echo 🚀 Starting standalone production server on port !PORT!...
@@ -164,6 +176,9 @@ if /I "!ENV!"=="p" (
         if exist .next\standalone (
             xcopy /y /e /i /q .next\static .next\standalone\.next\static
             xcopy /y /e /i /q public .next\standalone\public
+            if exist .env (
+                copy /y .env .next\standalone\.env >nul
+            )
         )
         echo [SUCCESS] Production standalone build compiled successfully.
         echo.

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { ReactFlowProvider, useReactFlow } from '@xyflow/react'
+import type { NavItem } from '@/lib/types'
 import {
   useDashboardStore,
   useActiveNavTreeAndEdges,

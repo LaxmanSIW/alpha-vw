@@ -304,14 +304,14 @@ function Cell({ node, col }: { node: Node; col: ColumnDef }) {
   }
 
   if (col.key === '__id') {
-    return <span className="font-mono text-text-secondary truncate">{value}</span>
+    return <span className="font-mono text-text-secondary truncate">{value as React.ReactNode}</span>
   }
 
   if (col.key === 'runs') {
     return <span className="tabular-nums text-text">{String(value ?? '--')}</span>
   }
 
-  if (col.format === 'mono' || col.key === 'host' || col.key === 'schedule') {
+  if ((col as { format?: string }).format === 'mono' || col.key === 'host' || col.key === 'schedule') {
     return <span className="font-mono text-text-secondary truncate">{String(value ?? '--')}</span>
   }
 

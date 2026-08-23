@@ -6,6 +6,7 @@
  */
 
 import type { BusinessDateResult, DashboardData, NodeLogEntry } from './types'
+export type { BusinessDateResult, DashboardData, NodeLogEntry }
 
 const API_BASE = '/api'
 

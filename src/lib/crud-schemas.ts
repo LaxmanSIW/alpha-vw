@@ -188,21 +188,57 @@ export function prepareNavNodeRecord(rawData: Record<string, unknown>): Record<s
   return record
 }
 
+const FIXED_NAV_NODE_KEYS = new Set([
+  'id',
+  'label',
+  'kind',
+  'parentId',
+  'parent_id',
+  'nodeKind',
+  'node_kind',
+  'status',
+  'host',
+  'runs',
+  'sortOrder',
+  'sort_order',
+  'data',
+])
+
 /** Write non-fixed nav_node fields to the node_field_values EAV table. */
-export async function syncNodeFieldValues(nodeId: string, rawData: Record<string, unknown>): Promise<void> {
+export async function syncNodeFieldValues(
+  nodeId: string,
+  rawData: Record<string, unknown>,
+  tx?: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+): Promise<void> {
   if (!nodeId || !rawData) return
-  const ignore = new Set(['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder', 'data'])
-  for (const [key, value] of Object.entries(rawData)) {
-    if (ignore.has(key)) continue
+  const client = tx || db
+
+  let validFieldKeys: Set<string> | null = null
+  try {
+    const definitions = await client.fieldDefinition.findMany({ select: { key: true } })
+    validFieldKeys = new Set(definitions.map((d) => d.key))
+  } catch (err) {
+    console.error('Error fetching field definitions for syncNodeFieldValues:', err)
+  }
+
+  for (const [rawKey, value] of Object.entries(rawData)) {
+    const cleanKey = rawKey.replace(/^\uFEFF/, '').trim().replace(/^["']|["']$/g, '')
+    const normalizedKey = normalizeKey(cleanKey)
+
+    if (FIXED_NAV_NODE_KEYS.has(cleanKey) || FIXED_NAV_NODE_KEYS.has(normalizedKey)) continue
     if (value === null || value === undefined || value === '') continue
+
+    const targetKey = validFieldKeys?.has(cleanKey) ? cleanKey : validFieldKeys?.has(normalizedKey) ? normalizedKey : null
+    if (!targetKey) continue
+
     try {
-      await db.nodeFieldValue.upsert({
-        where: { nodeId_fieldKey: { nodeId, fieldKey: key } },
-        create: { nodeId, fieldKey: key, fieldValue: String(value) },
+      await client.nodeFieldValue.upsert({
+        where: { nodeId_fieldKey: { nodeId, fieldKey: targetKey } },
+        create: { nodeId, fieldKey: targetKey, fieldValue: String(value) },
         update: { fieldValue: String(value) },
       })
     } catch (err) {
-      console.error(`Error syncing field ${key} for node ${nodeId}:`, err)
+      console.error(`Error syncing field ${targetKey} for node ${nodeId}:`, err)
     }
   }
 }

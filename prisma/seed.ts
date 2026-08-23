@@ -16,6 +16,8 @@
 
 import { db } from '../src/lib/db'
 
+declare const process: { exit: (code?: number) => void }
+
 // ─── Default app config rows ────────────────────────────────────────────────
 
 const APP_CONFIG_SEED = [

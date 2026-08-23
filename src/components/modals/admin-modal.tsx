@@ -428,18 +428,18 @@ const SAMPLE_CSV: Record<CrudTable, { headers: string[]; rows: string[][] }> = {
   viewpoints: {
     headers: ['id', 'moduleId', 'label', 'description', 'folder', 'jobCount', 'scope', 'filterStatus', 'grouping', 'sortBy'],
     rows: [
-      ['vp-default', 'architecture', 'Default', 'All jobs across all folders', null, '0', 'Public', 'All', 'Folder', 'label'],
-      ['vp-critical', 'architecture', 'Critical Path', 'Critical path jobs only', null, '0', 'Public', 'All', 'Folder', 'label'],
+      ['vp-default', 'architecture', 'Default', 'All jobs across all folders', '', '0', 'Public', 'All', 'Folder', 'label'],
+      ['vp-critical', 'architecture', 'Critical Path', 'Critical path jobs only', '', '0', 'Public', 'All', 'Folder', 'label'],
     ],
   },
   nav_nodes: {
     headers: ['id', 'label', 'kind', 'parent_id', 'node_kind', 'status', 'host', 'runs', 'sort_order'],
     rows: [
-      ['F-ROOT', 'Banking Jobs', 'folder', '', null, null, null, null, '0'],
-      ['F-01', 'Ingestion', 'folder', 'F-ROOT', null, null, null, null, '0'],
+      ['F-ROOT', 'Banking Jobs', 'folder', '', '', '', '', '', '0'],
+      ['F-01', 'Ingestion', 'folder', 'F-ROOT', '', '', '', '', '0'],
       ['J-01', 'Load Customer Data', 'item', 'F-01', 'Source', 'Completed', 'server-01', '142', '0'],
       ['J-02', 'Load Transaction Log', 'item', 'F-01', 'Source', 'Completed', 'server-01', '98', '0'],
-      ['F-02', 'Processing', 'folder', 'F-ROOT', null, null, null, null, '0'],
+      ['F-02', 'Processing', 'folder', 'F-ROOT', '', '', '', '', '0'],
       ['J-03', 'Validate Transactions', 'item', 'F-02', 'Process', 'Executing', 'server-02', '67', '0'],
     ],
   },
@@ -484,7 +484,7 @@ const SAMPLE_CSV: Record<CrudTable, { headers: string[]; rows: string[][] }> = {
   schedule_configs: {
     headers: ['id', 'name', 'configData', 'lastEvaluatedDate', 'isScheduledToday'],
     rows: [
-      ['sched-daily', 'DAILY_PROD_RUN', '{"WEEKDAYS":["1","2","3","4","5"],"MONTHS":["ALL"],"ACTIVITY_PERIOD":{"MODE":"ALWAYS"}}', null, 'N/A'],
+      ['sched-daily', 'DAILY_PROD_RUN', '{"WEEKDAYS":["1","2","3","4","5"],"MONTHS":["ALL"],"ACTIVITY_PERIOD":{"MODE":"ALWAYS"}}', '', 'N/A'],
     ],
   },
   app_config: {

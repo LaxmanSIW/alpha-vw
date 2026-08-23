@@ -13,6 +13,7 @@ An enterprise-grade batch job topology visualization and monitoring dashboard bu
 5. [Production Deployment & Package Installation](#5-production-deployment--package-installation)
    - [Method 1: Running Without PM2 (Direct Node.js / Systemd)](#method-1-running-without-pm2-direct-nodejs--systemd)
    - [Method 2: Running With PM2 (Optional Process Manager)](#method-2-running-with-pm2-optional-process-manager)
+   - [Troubleshooting: Missing or Deleted Database in Production Standalone](#️-troubleshooting-missing-or-deleted-database-in-production-standalone)
 6. [External Packages & Native Assets (Cannot be Packaged in Build)](#6-external-packages--native-assets)
 7. [Project Structure](#7-project-structure)
 8. [Available Scripts](#8-available-scripts)
@@ -218,6 +219,39 @@ pm2 start .next/standalone/server.js --name "alpha-vw" --env production
 pm2 save
 pm2 startup
 ```
+
+---
+
+### 🛠️ Troubleshooting: Missing or Deleted Database in Production Standalone
+
+If you are deploying or running the **standalone production server** and the database file (`db/custom.db`) is missing or has been deleted, follow these steps to recreate the tables and restore initial data:
+
+#### Option A: Automatic via `run.bat` (Recommended)
+Simply run `run.bat` in production mode:
+```cmd
+run.bat -e p
+```
+`run.bat` automatically creates missing database folders, runs `npx prisma db push --skip-generate --accept-data-loss` to recreate all SQLite tables, seeds default configuration data via `npx prisma db seed`, and starts the standalone production server.
+
+#### Option B: Manual CLI Steps
+1. **Verify `.env` Configuration**:
+   Ensure `.env` (or `.next/standalone/.env`) specifies the correct path using forward slashes (`/`):
+   ```env
+   DATABASE_URL="file:./db/custom.db"
+   ```
+   *Note for Windows*: Always use forward slashes `/` in SQLite paths (e.g. `file:C:/alpha-vw/db/custom.db`).
+
+2. **Recreate Tables & Seed Data**:
+   Execute the Prisma sync and seed commands:
+   ```cmd
+   npx prisma db push --skip-generate --accept-data-loss
+   npx prisma db seed
+   ```
+
+3. **Launch Standalone Server**:
+   ```cmd
+   node .next/standalone/server.js
+   ```
 
 ---
 
