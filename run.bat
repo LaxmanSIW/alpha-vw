@@ -98,7 +98,7 @@ echo.
 if /I "!DEPS!"=="y" (
     if /I "!ENV!"=="p" (
         echo 📦 Installing native production-only external packages...
-        call npm install --omit=dev sharp @prisma/client prisma @tailwindcss/postcss tailwindcss
+        call npm install --omit=dev sharp @prisma/client prisma @tailwindcss/postcss tailwindcss tw-animate-css
         if !ERRORLEVEL! neq 0 (
             echo [ERROR] npm install of production packages failed.
             exit /b !ERRORLEVEL!
