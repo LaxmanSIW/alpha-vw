@@ -80,7 +80,7 @@ export const bulkCreateSchema = z.object({
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 /** Normalize legacy snake_case column names to camelCase matching Prisma models. */
-function normalizeKey(k: string): string {
+export function normalizeKey(k: string): string {
   const mapping: Record<string, string> = {
     section_title: 'sectionTitle',
     sort_order: 'sortOrder',

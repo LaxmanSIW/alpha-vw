@@ -7,6 +7,7 @@ import type { FieldDefinition } from '@/lib/types'
 import { formatFieldValue, statusHex, statusBadgeStyle, isShowable } from '@/lib/fields'
 import { useDashboardStore } from '@/lib/stores/dashboard-store'
 import { useAppConfig } from '@/lib/app-config'
+import { normalizeKey } from '@/lib/crud-schemas'
 import { cn } from '@/lib/utils'
 
 interface NodeListViewProps {
@@ -99,8 +100,9 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
   const sorted = useMemo(() => {
     const arr = [...nodes]
     arr.sort((a, b) => {
-      const av = a.data?.[sortBy] ?? (a as unknown as Record<string, unknown>)[sortBy] ?? ''
-      const bv = b.data?.[sortBy] ?? (b as unknown as Record<string, unknown>)[sortBy] ?? ''
+      const normSortBy = normalizeKey(sortBy)
+      const av = a.data?.[sortBy] ?? a.data?.[normSortBy] ?? (a as unknown as Record<string, unknown>)[sortBy] ?? (a as unknown as Record<string, unknown>)[normSortBy] ?? ''
+      const bv = b.data?.[sortBy] ?? b.data?.[normSortBy] ?? (b as unknown as Record<string, unknown>)[sortBy] ?? (b as unknown as Record<string, unknown>)[normSortBy] ?? ''
       if (typeof av === 'number' && typeof bv === 'number') {
         return sortDir === 'asc' ? av - bv : bv - av
       }
@@ -127,7 +129,8 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
         if (col.key === '__id') {
           out[col.label] = n.id
         } else {
-          out[col.label] = String(n.data?.[col.key] ?? '')
+          const val = n.data?.[col.key] ?? n.data?.[normalizeKey(col.key)] ?? ''
+          out[col.label] = String(val)
         }
       }
       return out

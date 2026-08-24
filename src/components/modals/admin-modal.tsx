@@ -17,6 +17,7 @@ import {
   bulkCreateRows,
   type CrudTable,
 } from '@/lib/api-client'
+import { normalizeKey } from '@/lib/crud-schemas'
 import { cn } from '@/lib/utils'
 
 const TABS = [
@@ -55,7 +56,6 @@ const TABLE_COLUMNS: Record<CrudTable, string[]> = {
 
 const STRICT_OPTIONS: Record<string, string[]> = {
   kind: ['folder', 'job'],
-  status: ['ok', 'warn', 'fail'],
   showOnCard: ['Y', 'N'],
   showInDetails: ['Y', 'N'],
   showInList: ['Y', 'N'],
@@ -116,6 +116,7 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   const [activeTable, setActiveTable] = useState<CrudTable>('nav_nodes')
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [fieldDefs, setFieldDefs] = useState<Record<string, unknown>[]>([])
+  const [appConfigRows, setAppConfigRows] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})
@@ -126,6 +127,12 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
     try {
       const data = await fetchTableRows<Record<string, unknown>>(activeTable)
       setRows(data)
+      try {
+        const configs = await fetchTableRows<Record<string, unknown>>('app_config')
+        setAppConfigRows(configs)
+      } catch {
+        /* ignore */
+      }
       if (activeTable === 'nav_nodes') {
         try {
           const fdefs = await fetchTableRows<Record<string, unknown>>('field_definitions')
@@ -156,18 +163,49 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
     if (activeTable === 'nav_nodes') {
       for (const fd of fieldDefs) {
         const key = String(fd.key ?? '').trim()
-        if (key && key !== 'data') set.add(key)
+        if (!key || key === 'data') continue
+        const normKey = normalizeKey(key)
+        if (!set.has(normKey)) {
+          set.add(normKey)
+        }
       }
     }
 
     for (const r of rows) {
       for (const k of Object.keys(r)) {
         if (activeTable === 'nav_nodes' && k === 'data') continue
-        set.add(k)
+        const normKey = normalizeKey(k)
+        set.add(normKey)
       }
     }
     return Array.from(set)
   }, [rows, activeTable, fieldDefs])
+
+  const statusOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const row of appConfigRows) {
+      if (row.category === 'status') {
+        if (row.label) set.add(String(row.label).toLowerCase())
+        try {
+          const parsed = JSON.parse(String(row.value)) as { aliases?: string[] }
+          if (Array.isArray(parsed.aliases)) {
+            for (const alias of parsed.aliases) {
+              if (alias) set.add(alias.toLowerCase())
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (set.size === 0) {
+      ;['completed', 'ok', 'executing', 'wait', 'failed', 'warn'].forEach((s) => set.add(s))
+    }
+    for (const r of rows) {
+      if (r.status) set.add(String(r.status).toLowerCase())
+    }
+    return Array.from(set).sort()
+  }, [appConfigRows, rows])
 
   const onCreate = () => {
     setCreating(true)
@@ -225,9 +263,9 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-w-0">
       {/* Table list */}
-      <div className="w-52 shrink-0 border-r border-border bg-surface-sunken overflow-auto">
+      <div className="w-52 shrink-0 border-r border-border bg-surface-sunken overflow-auto custom-scrollbar">
         <div className="px-3 py-2 border-b border-border">
           <span className="label-caps">Tables</span>
         </div>
@@ -250,13 +288,13 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
       </div>
 
       {/* Rows */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-3 py-2">
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-3 py-2 w-full">
           <div className="flex items-center gap-2">
             <span className="label-caps">{TABLES.find((t) => t.id === activeTable)?.label}</span>
             <span className="text-xs text-text-muted">{rows.length} rows</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <Button size="sm" variant="secondary" onClick={load} disabled={loading}>
               {loading ? 'Loading…' : 'Refresh'}
             </Button>
@@ -276,20 +314,21 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
           onSave={onSave}
           isCreate={creating}
           rows={rows}
+          statusOptions={statusOptions}
         />
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto custom-scrollbar">
           {loading && rows.length === 0 ? (
             <div className="p-4 text-xs text-text-muted">Loading…</div>
           ) : rows.length === 0 ? (
             <div className="p-4 text-xs text-text-muted text-center">No rows. Click New to add one.</div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="min-w-full w-max text-xs border-collapse">
               <thead className="bg-surface-sunken sticky top-0 z-10">
                 <tr>
-                  <th className="w-16 px-2 py-1 text-left font-medium text-text-muted border-r border-border">Actions</th>
+                  <th className="w-16 px-3 py-1.5 text-left font-medium text-text-muted border-r border-border bg-surface-sunken sticky left-0 z-20 shadow-[1px_0_0_0_var(--border)]">Actions</th>
                   {columns.map((c) => (
-                    <th key={c} className="px-2 py-1 text-left font-medium text-text-muted border-r border-border whitespace-nowrap">{c}</th>
+                    <th key={c} className="px-3 py-1.5 text-left font-medium text-text-muted border-r border-border whitespace-nowrap bg-surface-sunken">{c}</th>
                   ))}
                 </tr>
               </thead>
@@ -299,7 +338,7 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
                   const isEditing = editingId === id
                   return (
                     <tr key={id} className={cn('border-b border-border hover:bg-surface-hover', isEditing && 'opacity-40')}>
-                      <td className="px-2 py-1 border-r border-border">
+                      <td className="px-2 py-1 border-r border-border bg-surface sticky left-0 z-10 shadow-[1px_0_0_0_var(--border)]">
                         <div className="flex items-center gap-0.5">
                           <button type="button" onClick={() => onEdit(row)} title="Edit" className="inline-flex items-center justify-center size-5 text-text-muted hover:text-primary hover:bg-primary/10">
                             <Pencil size={10} strokeWidth={1.5} />
@@ -310,7 +349,7 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
                         </div>
                       </td>
                       {columns.map((c) => (
-                        <td key={c} className="px-2 py-1 border-r border-border max-w-48 truncate text-text">
+                        <td key={c} className="px-3 py-1 border-r border-border max-w-xs truncate text-text font-mono text-[11px] whitespace-nowrap" title={String(row[c] ?? '')}>
                           {String(row[c] ?? '')}
                         </td>
                       ))}
@@ -326,6 +365,174 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   )
 }
 
+const FIELD_HELP_INFO: Record<string, Record<string, { isRequired: boolean; description: string; codeUsage: string }>> = {
+  nav_nodes: {
+    id: {
+      isRequired: true,
+      description: 'Unique node identifier (e.g. F-ROOT, J-01).',
+      codeUsage: 'Primary key used across canvas nodes, dependency edges, logs, and schedule maps.',
+    },
+    label: {
+      isRequired: true,
+      description: 'Display name for the job or folder.',
+      codeUsage: 'Rendered as title text on canvas cards, details header, and list view rows.',
+    },
+    kind: {
+      isRequired: true,
+      description: 'Structural container type ("folder" or "job").',
+      codeUsage: 'Determines tree navigation hierarchy, container nesting, and card styling.',
+    },
+    parentId: {
+      isRequired: true,
+      description: 'Parent node ID that contains this node.',
+      codeUsage: 'Used by tree builder (getNavTree) to nest jobs inside folders.',
+    },
+    nodeKind: {
+      isRequired: false,
+      description: 'Business classification type (e.g. Source, Process, Reporter).',
+      codeUsage: 'Subtitle category tag displayed on node card header.',
+    },
+    status: {
+      isRequired: false,
+      description: 'Current execution status (e.g. ok, warn, fail).',
+      codeUsage: 'Maps node accent stripe color via app_config status configuration.',
+    },
+  },
+  modules: {
+    id: {
+      isRequired: true,
+      description: 'Unique module identifier (e.g. architecture).',
+      codeUsage: 'Top-level switcher key that filters viewpoints.',
+    },
+    label: {
+      isRequired: true,
+      description: 'Module display label.',
+      codeUsage: 'Header tab title for top-level module switcher.',
+    },
+  },
+  viewpoints: {
+    id: {
+      isRequired: true,
+      description: 'Unique viewpoint identifier (e.g. vp-default).',
+      codeUsage: 'Primary key for active tab selection and lens state.',
+    },
+    moduleId: {
+      isRequired: true,
+      description: 'Parent module ID this viewpoint belongs to.',
+      codeUsage: 'Foreign key filtering viewpoints under active module tab.',
+    },
+    label: {
+      isRequired: true,
+      description: 'Viewpoint title.',
+      codeUsage: 'Tab bar label rendered in dashboard header.',
+    },
+  },
+  edges: {
+    id: {
+      isRequired: true,
+      description: 'Unique edge identifier (e.g. E-01).',
+      codeUsage: 'Primary key for directed dependency edge between nodes.',
+    },
+    source: {
+      isRequired: true,
+      description: 'Predecessor node ID (dependency origin).',
+      codeUsage: 'Used in React Flow & adjacency graph for dependency tracing.',
+    },
+    target: {
+      isRequired: true,
+      description: 'Successor node ID (dependency destination).',
+      codeUsage: 'Used in React Flow & adjacency graph for successor tracing.',
+    },
+  },
+  field_definitions: {
+    key: {
+      isRequired: true,
+      description: 'Unique field key (e.g. host, schedule).',
+      codeUsage: 'Primary key for EAV schema and node_field_values linkage.',
+    },
+    label: {
+      isRequired: true,
+      description: 'Display label for the field.',
+      codeUsage: 'Rendered as label in details panel, list columns, and cards.',
+    },
+  },
+  node_field_values: {
+    nodeId: {
+      isRequired: true,
+      description: 'Target node ID.',
+      codeUsage: 'Links field value to specific nav_nodes record.',
+    },
+    fieldKey: {
+      isRequired: true,
+      description: 'Field definition key.',
+      codeUsage: 'Links value to corresponding field_definitions schema key.',
+    },
+  },
+  node_logs: {
+    nodeId: {
+      isRequired: true,
+      description: 'Associated node ID.',
+      codeUsage: 'Foreign key to fetch execution log history for selected node.',
+    },
+    timestamp: {
+      isRequired: true,
+      description: 'Log timestamp string.',
+      codeUsage: 'Displayed in log history tab of details panel.',
+    },
+    message: {
+      isRequired: true,
+      description: 'Log detail message.',
+      codeUsage: 'Rendered in log execution feed.',
+    },
+  },
+  calendars: {
+    id: {
+      isRequired: true,
+      description: 'Calendar ID (e.g. cal-regular).',
+      codeUsage: 'Primary key for calendar rule evaluation.',
+    },
+    name: {
+      isRequired: true,
+      description: 'Calendar name (e.g. REGULAR).',
+      codeUsage: 'Referenced by schedule configs for workday/holiday calculation.',
+    },
+  },
+  schedule_configs: {
+    id: {
+      isRequired: true,
+      description: 'Schedule config ID (e.g. sched-daily).',
+      codeUsage: 'Primary key for schedule config record.',
+    },
+    name: {
+      isRequired: true,
+      description: 'Schedule name (e.g. DAILY_PROD_RUN).',
+      codeUsage: 'Referenced by node schedule fields for RBC date evaluation.',
+    },
+    configData: {
+      isRequired: true,
+      description: 'Schedule rule JSON configuration.',
+      codeUsage: 'Parsed by schedule engine to evaluate if job runs today.',
+    },
+  },
+  app_config: {
+    key: {
+      isRequired: true,
+      description: 'Config key (e.g. status.completed).',
+      codeUsage: 'System-wide configuration lookup key.',
+    },
+    category: {
+      isRequired: true,
+      description: 'Config category (e.g. status, layout).',
+      codeUsage: 'Groups settings in app config manager.',
+    },
+    value: {
+      isRequired: true,
+      description: 'Config setting value (JSON or string).',
+      codeUsage: 'Applied directly to layout dimensions, colors, or status mappings.',
+    },
+  },
+}
+
 function EditRecordModal({
   isOpen,
   onClose,
@@ -336,6 +543,7 @@ function EditRecordModal({
   onSave,
   isCreate,
   rows,
+  statusOptions = [],
 }: {
   isOpen: boolean
   onClose: () => void
@@ -346,29 +554,57 @@ function EditRecordModal({
   onSave: () => void
   isCreate: boolean
   rows: Record<string, unknown>[]
+  statusOptions?: string[]
 }) {
   return (
     <Modal
       open={isOpen}
       onOpenChange={(o) => !o && onClose()}
       title={isCreate ? `Create Record in ${tableName}` : `Edit Record in ${tableName}`}
-      description="Provide values for the fields. You can select existing values from the suggestions dropdown or enter custom values."
+      description="Provide values for the fields. Mandatory system fields are marked with *. Hover over the i icon for details on how each field is used."
       size="lg"
       fullScreen={false}
     >
       <div className="flex flex-col h-auto max-h-[calc(85vh-8rem)]">
-        <div className="flex-1 overflow-y-auto p-4 min-h-0">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
           <div className="grid grid-cols-2 gap-4">
             {columns.length === 0 ? (
               <p className="text-xs text-text-muted col-span-2">No columns found for this table.</p>
             ) : (
               columns.map((c) => {
+                const help = FIELD_HELP_INFO[tableName]?.[c]
+                const isRequired = help?.isRequired ?? (c === 'id' || c === 'key')
+                const infoTooltip = help ? { description: help.description, codeUsage: help.codeUsage } : undefined
+
+                // Dynamic status choices derived from app_config status definitions
+                if (c === 'status') {
+                  return (
+                    <Select
+                      key={c}
+                      label={c}
+                      isRequired={isRequired}
+                      infoTooltip={infoTooltip}
+                      value={String(form[c] ?? '')}
+                      onChange={(e) => onChange({ ...form, [c]: e.target.value })}
+                    >
+                      <option value="">-- Select Status --</option>
+                      {statusOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </Select>
+                  )
+                }
+
                 // If it has strict options, show Select dropdown
                 if (STRICT_OPTIONS[c]) {
                   return (
                     <Select
                       key={c}
                       label={c}
+                      isRequired={isRequired}
+                      infoTooltip={infoTooltip}
                       value={String(form[c] ?? '')}
                       onChange={(e) => onChange({ ...form, [c]: e.target.value })}
                     >
@@ -395,6 +631,8 @@ function EditRecordModal({
                   <div key={c} className="flex flex-col">
                     <Input
                       label={c}
+                      isRequired={isRequired}
+                      infoTooltip={infoTooltip}
                       value={String(form[c] ?? '')}
                       onChange={(e) => onChange({ ...form, [c]: e.target.value })}
                       list={`datalist-${c}`}
@@ -455,7 +693,7 @@ const SAMPLE_CSV: Record<CrudTable, { headers: string[]; rows: string[][] }> = {
     ],
   },
   nav_nodes: {
-    headers: ['id', 'label', 'kind', 'parent_id', 'node_kind', 'status', 'host', 'runs', 'sort_order'],
+    headers: ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder'],
     rows: [
       ['F-ROOT', 'Banking Jobs', 'folder', '', '', '', '', '', '0'],
       ['F-01', 'Ingestion', 'folder', 'F-ROOT', '', '', '', '', '0'],
@@ -540,13 +778,19 @@ async function buildDynamicSampleCSV(table: CrudTable): Promise<string> {
     }
     if (table === 'nav_nodes') {
       for (const k of fieldDefKeys) {
-        headerSet.add(k)
+        const normKey = normalizeKey(k)
+        if (!headerSet.has(normKey)) {
+          headerSet.add(normKey)
+        }
       }
     }
     for (const r of dbRows) {
       for (const k of Object.keys(r)) {
         if (table === 'nav_nodes' && k === 'data') continue
-        headerSet.add(k)
+        const normKey = normalizeKey(k)
+        if (!headerSet.has(normKey)) {
+          headerSet.add(normKey)
+        }
       }
     }
 
@@ -784,20 +1028,20 @@ function CsvImportTab({ onDataChanged }: { onDataChanged: () => void }) {
               {importing ? 'Importing…' : `Import ${parsedRows.length} rows`}
             </Button>
           </div>
-          <div className="border border-border overflow-auto max-h-80">
-            <table className="w-full text-xs">
-              <thead className="bg-surface-sunken sticky top-0">
+          <div className="border border-border overflow-auto max-h-80 custom-scrollbar">
+            <table className="min-w-full w-max text-xs border-collapse">
+              <thead className="bg-surface-sunken sticky top-0 z-10">
                 <tr>
                   {parsedHeaders.map((h) => (
-                    <th key={h} className="px-2 py-1 text-left font-medium text-text-muted border-r border-border whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-3 py-1.5 text-left font-medium text-text-muted border-r border-border whitespace-nowrap bg-surface-sunken">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {parsedRows.slice(0, 50).map((row, i) => (
-                  <tr key={i} className="border-b border-border">
+                  <tr key={i} className="border-b border-border hover:bg-surface-hover">
                     {parsedHeaders.map((h) => (
-                      <td key={h} className="px-2 py-1 border-r border-border max-w-40 truncate text-text">{row[h]}</td>
+                      <td key={h} className="px-3 py-1 border-r border-border max-w-xs truncate text-text font-mono text-[11px] whitespace-nowrap" title={row[h]}>{row[h]}</td>
                     ))}
                   </tr>
                 ))}

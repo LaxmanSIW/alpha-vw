@@ -23,7 +23,9 @@ export const PROTECTED_CORE_KEYS = [
   '__id',
   'label',
   'kind',
+  'parentId',
   'parent_id',
+  'nodeKind',
   'node_kind',
   'status',
 ]
@@ -42,7 +44,7 @@ export interface NodeFieldDef {
 export const NODE_FIELDS: NodeFieldDef[] = [
   { key: 'label', label: 'Node Label', sectionTitle: 'Identity', role: 'title', isProtected: true },
   { key: 'kind', label: 'Kind', sectionTitle: 'Identity', role: 'subtitle', isProtected: true },
-  { key: 'node_kind', label: 'Type', sectionTitle: 'Identity', role: 'subtitle', isProtected: true },
+  { key: 'nodeKind', label: 'Type', sectionTitle: 'Identity', role: 'subtitle', isProtected: true },
   { key: '__id', label: 'Node ID', sectionTitle: 'Identity', role: 'detail', format: 'mono', isProtected: true },
   { key: 'status', label: 'Status', sectionTitle: 'State', role: 'detail', format: 'status', isProtected: true },
 ]

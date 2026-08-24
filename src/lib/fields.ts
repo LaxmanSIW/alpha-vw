@@ -8,6 +8,7 @@
 import type { CSSProperties } from 'react'
 import type { Node } from '@xyflow/react'
 import { resolveStatus } from './app-config'
+import { normalizeKey } from './crud-schemas'
 
 export type FieldFormat = 'text' | 'mono' | 'status'
 
@@ -64,12 +65,18 @@ export function resolveField(node: Node, field: FieldDef): string {
   if (field.key === RESERVED_KEYS.position) {
     return `${Math.round(node.position.x)}, ${Math.round(node.position.y)}`
   }
-  return formatFieldValue((node.data as Record<string, unknown>)[field.key], field.format)
+  const data = (node.data as Record<string, unknown>) ?? {}
+  const val = data[field.key] ?? data[normalizeKey(field.key)]
+  return formatFieldValue(val, field.format)
 }
 
 export function rawFieldValue(node: Node, field: FieldDef): unknown {
   if (field.key === RESERVED_KEYS.id) return node.id
-  return (node.data as Record<string, unknown>)[field.key]
+  const data = (node.data as Record<string, unknown>) ?? {}
+  if (field.key in data) return data[field.key]
+  const norm = normalizeKey(field.key)
+  if (norm in data) return data[norm]
+  return undefined
 }
 
 /** Whether a value should be shown. 'N', 'NO', 'FALSE', '0' are all hidden. */

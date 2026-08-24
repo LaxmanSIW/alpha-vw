@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Palette, Ruler, MousePointerClick, Clock } from 'lucide-react'
+import { Palette, Ruler, MousePointerClick, Clock, Trash2, AlertTriangle } from 'lucide-react'
 import Modal from '@/components/ui-custom/modal'
 import Button from '@/components/ui-custom/button'
 import Input from '@/components/ui-custom/input'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useDashboardStore } from '@/lib/stores/dashboard-store'
-import { useAppConfig } from '@/lib/app-config'
 import { fetchTableRows, createTableRow, updateTableRow, deleteTableRow } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +16,7 @@ const TABS = [
   { id: 'layout', label: 'Canvas Layout', icon: Ruler },
   { id: 'relation', label: 'Node Highlight', icon: MousePointerClick },
   { id: 'business', label: 'Business Date', icon: Clock },
+  { id: 'data', label: 'Data Management', icon: Trash2 },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -56,6 +56,31 @@ export default function SettingsModal() {
   const [dayStartHour, setDayStartHour] = useState(0)
   const [dayStartMinute, setDayStartMinute] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleteInputText, setDeleteInputText] = useState('')
+  const [purging, setPurging] = useState(false)
+
+  const onPurgeTopology = async () => {
+    if (deleteInputText.trim().toLowerCase() !== 'delete') {
+      toast.error('Please type "delete" to confirm.')
+      return
+    }
+    setPurging(true)
+    try {
+      const res = await fetch('/api/crud/reset-topology', { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to purge data')
+      const json = (await res.json()) as { deleted?: { nodes: number; edges: number; fieldValues: number; logs: number } }
+      toast.success(`Purged ${json.deleted?.nodes ?? 0} nodes and ${json.deleted?.edges ?? 0} edges.`)
+      setConfirmOpen(false)
+      setDeleteInputText('')
+      await loadData(true)
+      close()
+    } catch (err) {
+      toast.error(`Purge failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setPurging(false)
+    }
+  }
 
   // Single fetch on open
   useEffect(() => {
@@ -102,11 +127,18 @@ export default function SettingsModal() {
   const onSaveStatuses = async () => {
     setSaving(true)
     try {
+      const existingRows = await fetchTableRows<{ key: string }>('app_config')
+      const existingKeys = new Set(existingRows.map((r) => r.key))
       for (const row of statusRows) {
         const value = JSON.stringify({ hex: row.hex, aliases: row.aliases.split(',').map((a) => a.trim().toLowerCase()).filter(Boolean) })
-        await updateTableRow('app_config', row.key, { key: row.key, category: 'status', label: row.label, value, sortOrder: row.sortOrder })
+        const payload = { key: row.key, category: 'status', label: row.label, value, sortOrder: row.sortOrder }
+        if (existingKeys.has(row.key)) {
+          await updateTableRow('app_config', row.key, payload)
+        } else {
+          await createTableRow('app_config', payload)
+        }
       }
-      toast.success('Status colors saved')
+      toast.success('Status definitions saved')
       await loadData(true)
       close()
     } catch (err) {
@@ -198,15 +230,23 @@ export default function SettingsModal() {
       size="xl"
       footer={
         <>
-          <Button variant="secondary" onClick={close} disabled={saving}>Cancel</Button>
-          <Button variant="primary" onClick={() => {
-            if (activeTab === 'status') onSaveStatuses()
-            else if (activeTab === 'layout') onSaveLayout()
-            else if (activeTab === 'relation') onSaveRelation()
-            else onSaveBusiness()
-          }} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Changes'}
+          <Button variant="secondary" onClick={close} disabled={saving || purging}>
+            {activeTab === 'data' ? 'Close' : 'Cancel'}
           </Button>
+          {activeTab !== 'data' && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (activeTab === 'status') onSaveStatuses()
+                else if (activeTab === 'layout') onSaveLayout()
+                else if (activeTab === 'relation') onSaveRelation()
+                else onSaveBusiness()
+              }}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Save Changes'}
+            </Button>
+          )}
         </>
       }
     >
@@ -233,7 +273,7 @@ export default function SettingsModal() {
           })}
         </nav>
 
-        <div className="flex-1 min-h-0 overflow-auto p-4">
+        <div className="flex-1 min-h-0 overflow-auto p-4 custom-scrollbar">
           {activeTab === 'status' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between mb-2">
@@ -331,8 +371,64 @@ export default function SettingsModal() {
               </div>
             </div>
           )}
+
+          {activeTab === 'data' && (
+            <div className="space-y-4 max-w-lg">
+              <div className="border border-danger-fg/30 bg-danger-bg/20 rounded p-4 space-y-3">
+                <div className="flex items-center gap-2 text-danger-fg font-semibold text-xs">
+                  <AlertTriangle size={16} strokeWidth={2} />
+                  <span>Danger Zone — Purge Topology Data</span>
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Purges all batch topology node records (<code className="text-primary font-mono text-[11px]">nav_nodes</code>), dependency links (<code className="text-primary font-mono text-[11px]">edges</code>), custom node values (<code className="text-primary font-mono text-[11px]">node_field_values</code>), and execution history (<code className="text-primary font-mono text-[11px]">node_logs</code>).
+                </p>
+                <div className="text-[11px] text-text-muted bg-surface-sunken p-2.5 rounded border border-border space-y-1 font-mono">
+                  <div className="text-success-fg font-medium">✓ Preserves: Field Definitions, Modules, Viewpoints, Calendars, Schedules, App Config</div>
+                  <div className="text-danger-fg font-medium">✗ Deletes: All Nodes, Edges, Custom Field Values, and Logs</div>
+                </div>
+                <div className="pt-2">
+                  <Button variant="danger" size="sm" onClick={() => { setDeleteInputText(''); setConfirmOpen(true) }}>
+                    <Trash2 size={12} strokeWidth={1.5} /> Purge All Nodes & Edges
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      <Modal
+        open={confirmOpen}
+        onOpenChange={(o) => !o && setConfirmOpen(false)}
+        title="Confirm Topology Data Deletion"
+        description='This action cannot be undone. To permanently delete all nodes and edges data, type "delete" below.'
+        size="sm"
+      >
+        <div className="space-y-4 p-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary">Type "delete" to confirm:</label>
+            <Input
+              value={deleteInputText}
+              onChange={(e) => setDeleteInputText(e.target.value)}
+              placeholder="delete"
+              autoFocus
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)} disabled={purging}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={onPurgeTopology}
+              disabled={deleteInputText.trim().toLowerCase() !== 'delete' || purging}
+            >
+              {purging ? 'Purging…' : 'Confirm & Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   )
 }

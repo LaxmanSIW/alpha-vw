@@ -411,3 +411,26 @@
   transform: translate(-50%, 100%) !important; /* Base (top edge) touches bottom border */
   clip-path: polygon(50% 100%, 0% 0%, 100% 0%) !important; /* Downward triangle */
 }
+
+/* ==========================================================================
+   Custom Sleek Scrollbar Utility
+   ========================================================================== */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface-sunken);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--surface-sunken);
+}

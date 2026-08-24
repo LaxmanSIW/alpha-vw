@@ -11,6 +11,7 @@ import {
   createSchema,
   updateSchema,
   normalizeRecord,
+  normalizeKey,
   getPrimaryKeyColumn,
   prepareNavNodeRecord,
   syncNodeFieldValues,
@@ -52,15 +53,32 @@ async function fetchTableRows(table: CrudTable) {
         if (data) {
           try { extra = JSON.parse(data) as Record<string, unknown> } catch { /* ignore */ }
         }
-        return { ...rest, ...extra }
+        const normalizedExtra: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(extra)) {
+          const normKey = normalizeKey(k)
+          if (!(normKey in rest)) {
+            normalizedExtra[normKey] = v
+          }
+        }
+        return { ...rest, ...normalizedExtra }
       })
     }
     case 'edges':
       return db.edge.findMany()
     case 'node_logs':
       return db.nodeLog.findMany({ orderBy: { id: 'desc' } })
-    case 'field_definitions':
-      return db.fieldDefinition.findMany({ orderBy: { sortOrder: 'asc' } })
+    case 'field_definitions': {
+      const rows = await db.fieldDefinition.findMany({ orderBy: { sortOrder: 'asc' } })
+      const seen = new Set<string>()
+      const result: typeof rows = []
+      for (const r of rows) {
+        const normKey = normalizeKey(r.key)
+        if (seen.has(normKey)) continue
+        seen.add(normKey)
+        result.push({ ...r, key: normKey })
+      }
+      return result
+    }
     case 'node_field_values':
       return db.nodeFieldValue.findMany()
     case 'calendars':
@@ -106,34 +124,94 @@ export async function POST(
 
 async function createRecord(table: CrudTable, rawData: Record<string, unknown>): Promise<string | number> {
   switch (table) {
-    case 'modules':
+    case 'modules': {
+      const id = String(rawData.id ?? '')
+      if (id) {
+        const res = await db.module.upsert({ where: { id }, create: rawData as never, update: rawData as never })
+        return res.id
+      }
       return (await db.module.create({ data: rawData as never })).id
-    case 'viewpoints':
+    }
+    case 'viewpoints': {
+      const id = String(rawData.id ?? '')
+      if (id) {
+        const res = await db.viewpoint.upsert({ where: { id }, create: rawData as never, update: rawData as never })
+        return res.id
+      }
       return (await db.viewpoint.create({ data: rawData as never })).id
+    }
     case 'nav_nodes': {
       const navData = prepareNavNodeRecord(rawData)
-      const created = await db.navNode.create({ data: navData as never })
-      await syncNodeFieldValues(created.id, rawData)
-      return created.id
+      const id = String(navData.id ?? rawData.id ?? '')
+      let createdId = id
+      if (id) {
+        const res = await db.navNode.upsert({ where: { id }, create: navData as never, update: navData as never })
+        createdId = res.id
+      } else {
+        const created = await db.navNode.create({ data: navData as never })
+        createdId = created.id
+      }
+      await syncNodeFieldValues(createdId, rawData)
+      return createdId
     }
-    case 'edges':
+    case 'edges': {
+      const id = String(rawData.id ?? '')
+      if (id) {
+        const res = await db.edge.upsert({ where: { id }, create: rawData as never, update: rawData as never })
+        return res.id
+      }
       return (await db.edge.create({ data: rawData as never })).id
+    }
     case 'node_logs': {
       const created = await db.nodeLog.create({ data: rawData as never })
       return created.id
     }
-    case 'field_definitions':
+    case 'field_definitions': {
+      const key = String(rawData.key ?? '')
+      if (key) {
+        const res = await db.fieldDefinition.upsert({ where: { key }, create: rawData as never, update: rawData as never })
+        return res.key
+      }
       return (await db.fieldDefinition.create({ data: rawData as never })).key
+    }
     case 'node_field_values': {
+      const nodeId = String(rawData.nodeId ?? '')
+      const fieldKey = String(rawData.fieldKey ?? '')
+      if (nodeId && fieldKey) {
+        await db.nodeFieldValue.upsert({
+          where: { nodeId_fieldKey: { nodeId, fieldKey } },
+          create: rawData as never,
+          update: rawData as never,
+        })
+        return `${nodeId}__${fieldKey}`
+      }
       await db.nodeFieldValue.create({ data: rawData as never })
       return 'ok'
     }
-    case 'calendars':
+    case 'calendars': {
+      const id = String(rawData.id ?? '')
+      if (id) {
+        const res = await db.calendar.upsert({ where: { id }, create: rawData as never, update: rawData as never })
+        return res.id
+      }
       return (await db.calendar.create({ data: rawData as never })).id
-    case 'schedule_configs':
+    }
+    case 'schedule_configs': {
+      const id = String(rawData.id ?? '')
+      if (id) {
+        const res = await db.scheduleConfig.upsert({ where: { id }, create: rawData as never, update: rawData as never })
+        return res.id
+      }
       return (await db.scheduleConfig.create({ data: rawData as never })).id
-    case 'app_config':
+    }
+    case 'app_config': {
+      const key = String(rawData.key ?? '')
+      if (key) {
+        const res = await db.appConfig.upsert({ where: { key }, create: rawData as never, update: rawData as never })
+        return res.key
+      }
       return (await db.appConfig.create({ data: rawData as never })).key
+    }
   }
 }
 

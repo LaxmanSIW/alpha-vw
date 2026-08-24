@@ -18,6 +18,7 @@ import {
   statusTextStyle,
   isShowable,
 } from '@/lib/fields'
+import { normalizeKey } from '@/lib/crud-schemas'
 import { useAppConfig } from '@/lib/app-config'
 import { useDashboardStore } from '@/lib/stores/dashboard-store'
 import type { FieldDefinition } from '@/lib/types'
@@ -103,7 +104,7 @@ function FlatNodeInner({ id, data, selected }: FlatNodeProps) {
 
   function valueOf(field: { key: string; format?: 'text' | 'mono' | 'status' }): string {
     if (field.key === RESERVED_KEYS.id || field.key === 'id') return id
-    const val = node[field.key]
+    const val = node[field.key] ?? node[normalizeKey(field.key)]
     return formatFieldValue(val, field.format)
   }
 
