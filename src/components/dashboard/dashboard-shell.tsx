@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ReactFlowProvider, useReactFlow } from '@xyflow/react'
 import type { NavItem } from '@/lib/types'
 import {
@@ -236,6 +236,16 @@ function DashboardShell() {
     })
   }
 
+  const [leftWidth, setLeftWidth] = useState(260)
+  const [rightWidth, setRightWidth] = useState(340)
+
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const effectiveOppositeRightW = rightCollapsed ? 32 : rightWidth
+  const effectiveOppositeLeftW = leftCollapsed ? 32 : leftWidth
+
+  const maxLeftWidth = Math.max(180, winW - effectiveOppositeRightW - 40)
+  const maxRightWidth = Math.max(180, winW - effectiveOppositeLeftW - 40)
+
   // ── Viewpoint handlers ───────────────────────────────────────────────
   const handleDeleteViewpoint = async (vp: { id: string; label: string }) => {
     if (!window.confirm(`Are you sure you want to delete viewpoint "${vp.label}"?`)) return
@@ -380,6 +390,9 @@ function DashboardShell() {
           onToggle={toggleLeftPanel}
           focused={focusedPane === 'nav'}
           onFocusCapture={() => setFocusedPane('nav')}
+          width={leftWidth}
+          onWidthChange={setLeftWidth}
+          maxAllowedWidth={maxLeftWidth}
         >
           <NavigationTree
             items={activeNavTree}
@@ -444,6 +457,9 @@ function DashboardShell() {
           onToggle={toggleRightPanel}
           focused={focusedPane === 'details'}
           onFocusCapture={() => setFocusedPane('details')}
+          width={rightWidth}
+          onWidthChange={setRightWidth}
+          maxAllowedWidth={maxRightWidth}
         >
           <DetailsPanel
             selectedNode={selectedNode}

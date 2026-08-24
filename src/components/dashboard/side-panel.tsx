@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const MIN_W = 180
-const MAX_W = 560
 const DEFAULT_W = 260
 const COLLAPSED_W = 32
 
@@ -17,6 +16,9 @@ interface SidePanelProps {
   children: React.ReactNode
   focused?: boolean
   onFocusCapture?: () => void
+  width?: number
+  onWidthChange?: (width: number) => void
+  maxAllowedWidth?: number
 }
 
 export default function SidePanel({
@@ -27,23 +29,39 @@ export default function SidePanel({
   children,
   focused = false,
   onFocusCapture,
+  width: propWidth,
+  onWidthChange,
+  maxAllowedWidth,
 }: SidePanelProps) {
-  const [width, setWidth] = useState(DEFAULT_W)
+  const [internalWidth, setInternalWidth] = useState(side === 'left' ? 260 : 340)
+  const currentWidth = propWidth ?? internalWidth
   const draggingRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleWidthChange = useCallback(
+    (newW: number) => {
+      if (onWidthChange) onWidthChange(newW)
+      else setInternalWidth(newW)
+    },
+    [onWidthChange],
+  )
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault()
       draggingRef.current = true
       const startX = e.clientX
-      const startW = width
+      const startW = currentWidth
+
+      const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+      const effectiveMaxW = maxAllowedWidth ?? (winW - 72)
 
       const onMove = (ev: PointerEvent) => {
         if (!draggingRef.current) return
         const delta = ev.clientX - startX
         const next = side === 'left' ? startW + delta : startW - delta
-        setWidth(Math.min(MAX_W, Math.max(MIN_W, next)))
+        const clamped = Math.min(effectiveMaxW, Math.max(MIN_W, next))
+        handleWidthChange(clamped)
       }
       const onUp = () => {
         draggingRef.current = false
@@ -53,7 +71,7 @@ export default function SidePanel({
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [side, width],
+    [side, currentWidth, maxAllowedWidth, handleWidthChange],
   )
 
   useEffect(() => {
@@ -97,7 +115,7 @@ export default function SidePanel({
         'border-border',
         focused && 'ring-1 ring-inset ring-primary/40',
       )}
-      style={{ width }}
+      style={{ width: currentWidth }}
     >
       <div className="flex h-[var(--viewtabs-h)] shrink-0 items-center justify-between border-b border-border px-3">
         <span className="label-caps">{title}</span>
@@ -118,16 +136,18 @@ export default function SidePanel({
         role="separator"
         aria-orientation="vertical"
         aria-label={`Resize ${title}`}
-        aria-valuenow={width}
+        aria-valuenow={currentWidth}
         aria-valuemin={MIN_W}
-        aria-valuemax={MAX_W}
+        aria-valuemax={maxAllowedWidth ?? 1200}
         tabIndex={0}
         onPointerDown={onPointerDown}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowLeft' && side === 'right') setWidth((w) => Math.min(MAX_W, w + 16))
-          if (e.key === 'ArrowRight' && side === 'left') setWidth((w) => Math.min(MAX_W, w + 16))
-          if (e.key === 'ArrowLeft' && side === 'left') setWidth((w) => Math.max(MIN_W, w - 16))
-          if (e.key === 'ArrowRight' && side === 'right') setWidth((w) => Math.max(MIN_W, w - 16))
+          const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+          const effectiveMaxW = maxAllowedWidth ?? (winW - 72)
+          if (e.key === 'ArrowLeft' && side === 'right') handleWidthChange(Math.min(effectiveMaxW, currentWidth + 16))
+          if (e.key === 'ArrowRight' && side === 'left') handleWidthChange(Math.min(effectiveMaxW, currentWidth + 16))
+          if (e.key === 'ArrowLeft' && side === 'left') handleWidthChange(Math.max(MIN_W, currentWidth - 16))
+          if (e.key === 'ArrowRight' && side === 'right') handleWidthChange(Math.max(MIN_W, currentWidth - 16))
         }}
         className={cn(
           'absolute top-0 bottom-0 w-[12px] cursor-col-resize z-50 flex items-center justify-center transition-colors',
