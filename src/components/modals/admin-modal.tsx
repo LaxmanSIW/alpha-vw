@@ -55,7 +55,6 @@ const TABLE_COLUMNS: Record<CrudTable, string[]> = {
 
 const STRICT_OPTIONS: Record<string, string[]> = {
   kind: ['folder', 'job'],
-  nodeKind: ['job', 'folder'],
   status: ['ok', 'warn', 'fail'],
   showOnCard: ['Y', 'N'],
   showInDetails: ['Y', 'N'],
@@ -116,6 +115,7 @@ export default function AdminModal() {
 function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   const [activeTable, setActiveTable] = useState<CrudTable>('nav_nodes')
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [fieldDefs, setFieldDefs] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})
@@ -126,6 +126,14 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
     try {
       const data = await fetchTableRows<Record<string, unknown>>(activeTable)
       setRows(data)
+      if (activeTable === 'nav_nodes') {
+        try {
+          const fdefs = await fetchTableRows<Record<string, unknown>>('field_definitions')
+          setFieldDefs(fdefs)
+        } catch {
+          /* ignore */
+        }
+      }
     } catch (err) {
       toast.error(`Failed to load ${activeTable}: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
@@ -138,14 +146,28 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   }, [activeTable, load])
 
   const columns = useMemo(() => {
-    const set = new Set<string>(TABLE_COLUMNS[activeTable] ?? [])
+    const set = new Set<string>()
+    const baseCols = TABLE_COLUMNS[activeTable] ?? []
+    for (const c of baseCols) {
+      if (activeTable === 'nav_nodes' && c === 'data') continue
+      set.add(c)
+    }
+
+    if (activeTable === 'nav_nodes') {
+      for (const fd of fieldDefs) {
+        const key = String(fd.key ?? '').trim()
+        if (key && key !== 'data') set.add(key)
+      }
+    }
+
     for (const r of rows) {
       for (const k of Object.keys(r)) {
+        if (activeTable === 'nav_nodes' && k === 'data') continue
         set.add(k)
       }
     }
     return Array.from(set)
-  }, [rows, activeTable])
+  }, [rows, activeTable, fieldDefs])
 
   const onCreate = () => {
     setCreating(true)
@@ -497,12 +519,104 @@ const SAMPLE_CSV: Record<CrudTable, { headers: string[]; rows: string[][] }> = {
   },
 }
 
-function buildSampleCSV(table: CrudTable): string {
+async function buildDynamicSampleCSV(table: CrudTable): Promise<string> {
+  try {
+    const dbRows = await fetchTableRows<Record<string, unknown>>(table)
+    let fieldDefKeys: string[] = []
+    if (table === 'nav_nodes') {
+      try {
+        const fdefs = await fetchTableRows<Record<string, unknown>>('field_definitions')
+        fieldDefKeys = fdefs.map((f) => String(f.key ?? '').trim()).filter((k) => k && k !== 'data')
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const headerSet = new Set<string>()
+    const baseCols = TABLE_COLUMNS[table] ?? []
+    for (const c of baseCols) {
+      if (table === 'nav_nodes' && c === 'data') continue
+      headerSet.add(c)
+    }
+    if (table === 'nav_nodes') {
+      for (const k of fieldDefKeys) {
+        headerSet.add(k)
+      }
+    }
+    for (const r of dbRows) {
+      for (const k of Object.keys(r)) {
+        if (table === 'nav_nodes' && k === 'data') continue
+        headerSet.add(k)
+      }
+    }
+
+    const headers = Array.from(headerSet)
+    if (headers.length === 0) return buildStaticFallbackSampleCSV(table)
+
+    if (dbRows.length > 0) {
+      const sampleRows = dbRows.slice(0, 10).map((row) =>
+        headers.map((h) => {
+          const val = row[h]
+          if (val === null || val === undefined) return ''
+          if (typeof val === 'object') return JSON.stringify(val)
+          return String(val)
+        })
+      )
+
+      const headerLine = headers.join(',')
+      const dataLines = sampleRows
+        .map((r) =>
+          r
+            .map((cell) => {
+              if (cell && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+                return `"${cell.replace(/"/g, '""')}"`
+              }
+              return cell ?? ''
+            })
+            .join(',')
+        )
+        .join('\n')
+
+      return `${headerLine}\n${dataLines}`
+    }
+
+    const fallback = SAMPLE_CSV[table]
+    if (fallback) {
+      const fallbackRows = fallback.rows.map((row) =>
+        headers.map((h) => {
+          const idx = fallback.headers.indexOf(h)
+          if (idx !== -1 && row[idx] !== undefined) return row[idx]
+          return ''
+        })
+      )
+      const headerLine = headers.join(',')
+      const dataLines = fallbackRows
+        .map((r) =>
+          r
+            .map((cell) => {
+              if (cell && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
+                return `"${cell.replace(/"/g, '""')}"`
+              }
+              return cell ?? ''
+            })
+            .join(',')
+        )
+        .join('\n')
+
+      return `${headerLine}\n${dataLines}`
+    }
+
+    return headers.join(',')
+  } catch {
+    return buildStaticFallbackSampleCSV(table)
+  }
+}
+
+function buildStaticFallbackSampleCSV(table: CrudTable): string {
   const sample = SAMPLE_CSV[table]
   if (!sample) return ''
   const headerLine = sample.headers.join(',')
   const dataLines = sample.rows.map((r) => r.map((cell) => {
-    // Quote cells that contain commas, quotes, or newlines
     if (cell && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))) {
       return `"${cell.replace(/"/g, '""')}"`
     }
@@ -530,9 +644,22 @@ function CsvImportTab({ onDataChanged }: { onDataChanged: () => void }) {
   const [fileName, setFileName] = useState<string>('')
   const [importing, setImporting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [sampleCSV, setSampleCSV] = useState<string>('')
+  const [loadingSample, setLoadingSample] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const sampleCSV = useMemo(() => buildSampleCSV(targetTable), [targetTable])
+  useEffect(() => {
+    let isMounted = true
+    setLoadingSample(true)
+    buildDynamicSampleCSV(targetTable).then((csv) => {
+      if (isMounted) {
+        setSampleCSV(csv)
+        setLoadingSample(false)
+      }
+    })
+    return () => { isMounted = false }
+  }, [targetTable])
+
   const hasSample = sampleCSV.length > 0
 
   const loadSample = () => {

@@ -112,9 +112,10 @@ export function normalizeRecord(table: CrudTable, rawData: Record<string, unknow
   for (const [rawKey, val] of Object.entries(rawData)) {
     const cleanKey = rawKey.replace(/^\uFEFF/, '').trim().replace(/^["']|["']$/g, '')
     const normalized = normalizeKey(cleanKey)
-    if (!allowed.has(normalized)) continue
+    if (table !== 'nav_nodes' && !allowed.has(normalized)) continue
     if (val === undefined) continue
-    result[normalized] = val
+    const keyToUse = allowed.has(normalized) ? normalized : cleanKey
+    result[keyToUse] = val
   }
 
   // Convert booleans / strings to integers/floats for Prisma schema types
