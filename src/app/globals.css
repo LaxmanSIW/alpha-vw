@@ -116,26 +116,26 @@
 :root,
 [data-density="compact"] {
   --control-h: 28px;
-  --row-h: 32px;
+  --row-h: 26px;
   --icon-btn: 28px;
   --text-size: 13px;
   --text-size-sm: 12px;
   --text-size-xs: 11px;
   --gap: 8px;
   --pad-x: 8px;
-  --pad-y: 4px;
+  --pad-y: 2px;
 }
 
 [data-density="comfortable"] {
   --control-h: 34px;
-  --row-h: 40px;
+  --row-h: 32px;
   --icon-btn: 34px;
   --text-size: 14px;
   --text-size-sm: 13px;
   --text-size-xs: 11px;
   --gap: 12px;
   --pad-x: 12px;
-  --pad-y: 8px;
+  --pad-y: 4px;
 }
 
 /* Shell chrome — fixed regardless of density */

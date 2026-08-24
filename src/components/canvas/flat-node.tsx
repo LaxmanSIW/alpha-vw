@@ -128,7 +128,7 @@ function FlatNodeInner({ id, data, selected }: FlatNodeProps) {
       <span aria-hidden="true" className="w-1 shrink-0" style={{ backgroundColor: stripe }} />
 
       <div className="min-w-0 flex-1">
-        <div className="px-2 py-1.5">
+        <div className="px-2 py-1">
           {titleFields.length > 0 && (
             <div className="truncate text-sm font-medium text-text">
               {titleFields.map((f) => valueOf(f)).join(' · ')}
