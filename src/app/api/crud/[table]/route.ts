@@ -46,7 +46,11 @@ async function fetchTableRows(table: CrudTable) {
     case 'viewpoints':
       return db.viewpoint.findMany()
     case 'nav_nodes': {
-      const rows = await db.navNode.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
+      const [rows, activeFieldDefs] = await Promise.all([
+        db.navNode.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
+        db.fieldDefinition.findMany({ where: { isActive: 1 }, select: { key: true } }),
+      ])
+      const activeKeys = new Set(activeFieldDefs.flatMap((f) => [f.key, normalizeKey(f.key)]))
       return rows.map((r) => {
         const { data, ...rest } = r
         let extra: Record<string, unknown> = {}
@@ -56,7 +60,7 @@ async function fetchTableRows(table: CrudTable) {
         const normalizedExtra: Record<string, unknown> = {}
         for (const [k, v] of Object.entries(extra)) {
           const normKey = normalizeKey(k)
-          if (!(normKey in rest)) {
+          if (!(normKey in rest) && (activeKeys.has(k) || activeKeys.has(normKey))) {
             normalizedExtra[normKey] = v
           }
         }
@@ -141,7 +145,9 @@ async function createRecord(table: CrudTable, rawData: Record<string, unknown>):
       return (await db.viewpoint.create({ data: rawData as never })).id
     }
     case 'nav_nodes': {
-      const navData = prepareNavNodeRecord(rawData)
+      const activeFieldDefs = await db.fieldDefinition.findMany({ where: { isActive: 1 }, select: { key: true } })
+      const validKeys = new Set(activeFieldDefs.flatMap((f) => [f.key, normalizeKey(f.key)]))
+      const navData = prepareNavNodeRecord(rawData, validKeys)
       const id = String(navData.id ?? rawData.id ?? '')
       let createdId = id
       if (id) {

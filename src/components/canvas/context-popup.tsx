@@ -18,9 +18,10 @@ interface ContextPopupProps {
   onClose: () => void
   onSelectNode?: (id: string) => void
   onSelectAction?: (nodeId: string, actionId: string) => void
+  hideScrim?: boolean
 }
 
-export default function ContextPopup({ menu, onClose, onSelectNode, onSelectAction }: ContextPopupProps) {
+export default function ContextPopup({ menu, onClose, onSelectNode, onSelectAction, hideScrim = false }: ContextPopupProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   // Compute clamped position synchronously at render time (avoids setState in effect).
@@ -28,16 +29,16 @@ export default function ContextPopup({ menu, onClose, onSelectNode, onSelectActi
   // overflow guard, not state. For an exact fit, we'd need useLayoutEffect, but the
   // sync approach is good enough — modals will adjust their own overflow.
   const width = menu.kind === 'menu' ? POPUP_CONFIG.MENU_WIDTH : POPUP_CONFIG.LIST_WIDTH
-  const height = menu.kind === 'menu' ? POPUP_CONFIG.MENU_HEIGHT : 360
+
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const winH = typeof window !== 'undefined' ? window.innerHeight : 800
 
   const adjustedX = Math.min(
     Math.max(menu.x, 8),
-    (typeof window !== 'undefined' ? window.innerWidth : 1200) - width - 8,
+    winW - width - 8,
   )
-  const adjustedY = Math.min(
-    Math.max(menu.y, 8),
-    (typeof window !== 'undefined' ? window.innerHeight : 800) - height - 8,
-  )
+  const adjustedY = Math.max(menu.y, 8)
+  const maxAvailableHeight = Math.max(160, winH - adjustedY - 12)
 
   // Click outside closes
   useEffect(() => {
@@ -60,14 +61,20 @@ export default function ContextPopup({ menu, onClose, onSelectNode, onSelectActi
   return (
     <>
       {/* Scrim — invisible, but catches pointerdown to close */}
-      <div className="fixed inset-0 z-40" aria-hidden onClick={onClose} />
+      {!hideScrim && <div className="fixed inset-0 z-40 pointer-events-auto" aria-hidden onClick={onClose} />}
       <div
         ref={ref}
         role={menu.kind === 'menu' ? 'menu' : 'dialog'}
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className={cn('fixed z-50 border border-border-strong bg-surface text-text')}
-        style={{ left: adjustedX, top: adjustedY, width, maxHeight: 360 }}
+        onClick={(e) => e.stopPropagation()}
+        className={cn('fixed z-50 border border-border-strong bg-surface text-text shadow-lg rounded-md overflow-hidden pointer-events-auto')}
+        style={{
+          left: adjustedX,
+          top: adjustedY,
+          width,
+          maxHeight: menu.kind === 'menu' ? POPUP_CONFIG.MENU_HEIGHT : Math.min(360, maxAvailableHeight),
+        }}
       >
         {menu.kind === 'menu' ? (
           <ul className="py-1">
@@ -168,8 +175,11 @@ export function calculatePopupPlacement(
 ): { x: number; y: number; side: PopupSide } {
   let x = clientX
   let y = clientY
-  if (x + width > window.innerWidth - 8) x = clientX - width
-  if (y + height > window.innerHeight - 8) y = clientY - height
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const winH = typeof window !== 'undefined' ? window.innerHeight : 800
+
+  if (x + width > winW - 8) x = Math.max(8, clientX - width)
+  if (y + height > winH - 8) y = Math.max(8, winH - height - 8)
   if (x < 8) x = 8
   if (y < 8) y = 8
   return { x, y, side }

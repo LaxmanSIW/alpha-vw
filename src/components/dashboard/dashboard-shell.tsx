@@ -120,8 +120,8 @@ function DashboardShell() {
     const findAndExpandParents = (items: NavItem[], path: string[] = []): boolean => {
       for (const item of items) {
         if (item.id === nodeId) {
-          for (const folderId of path) {
-            useDashboardStore.getState().toggleNavExpand(folderId)
+          if (path.length > 0) {
+            useDashboardStore.getState().expandNavFolders(path)
           }
           return true
         }
@@ -210,7 +210,30 @@ function DashboardShell() {
       map,
     )
 
-    setContextList({ ...nextMenu, items: nextMenu.items, relation })
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const winH = typeof window !== 'undefined' ? window.innerHeight : 800
+
+    const menuW = POPUP_CONFIG.MENU_WIDTH
+    const listW = POPUP_CONFIG.LIST_WIDTH
+    const listH = POPUP_CONFIG.LIST_HEIGHT
+    const gap = 6
+
+    // Position list panel to the right of contextMenu (or to the left if near right screen edge)
+    let listX = contextMenu.x + menuW + gap
+    if (listX + listW > winW - 8) {
+      listX = Math.max(8, contextMenu.x - listW - gap)
+    }
+
+    // TOP EDGE ALIGNMENT: listY MUST match contextMenu.y exactly so top edges align horizontally
+    const listY = contextMenu.y
+
+    setContextList({
+      ...nextMenu,
+      x: listX,
+      y: listY,
+      items: nextMenu.items,
+      relation,
+    })
   }
 
   // ── Viewpoint handlers ───────────────────────────────────────────────
@@ -442,34 +465,48 @@ function DashboardShell() {
       />
 
       {/* Context popups */}
-      {contextMenu && (
-        <ContextPopup
-          menu={contextMenu}
-          onClose={() => {
-            setContextMenu(null)
-            setContextList(null)
-          }}
-          onSelectNode={(nodeId) => {
-            focusNode(nodeId)
-            setContextMenu(null)
-            setContextList(null)
-          }}
-          onSelectAction={onContextAction}
-        />
-      )}
-      {contextList && (
-        <ContextPopup
-          menu={contextList}
-          onClose={() => {
-            setContextMenu(null)
-            setContextList(null)
-          }}
-          onSelectNode={(nodeId) => {
-            focusNode(nodeId)
-            setContextMenu(null)
-            setContextList(null)
-          }}
-        />
+      {(contextMenu || contextList) && (
+        <div className="fixed inset-0 z-40 pointer-events-none">
+          {/* Backdrop scrim to close both popups on outside click */}
+          <div
+            className="fixed inset-0 pointer-events-auto"
+            onClick={() => {
+              setContextMenu(null)
+              setContextList(null)
+            }}
+          />
+          {contextMenu && (
+            <ContextPopup
+              menu={contextMenu}
+              onClose={() => {
+                setContextMenu(null)
+                setContextList(null)
+              }}
+              onSelectNode={(nodeId) => {
+                focusNode(nodeId)
+                setContextMenu(null)
+                setContextList(null)
+              }}
+              onSelectAction={onContextAction}
+              hideScrim
+            />
+          )}
+          {contextList && (
+            <ContextPopup
+              menu={contextList}
+              onClose={() => {
+                setContextMenu(null)
+                setContextList(null)
+              }}
+              onSelectNode={(nodeId) => {
+                focusNode(nodeId)
+                setContextMenu(null)
+                setContextList(null)
+              }}
+              hideScrim
+            />
+          )}
+        </div>
       )}
 
       {/* Modals */}

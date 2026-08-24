@@ -74,6 +74,7 @@ interface DashboardState {
   setListView: (v: boolean) => void
   toggleListView: () => void
   toggleNavExpand: (id: string) => void
+  expandNavFolders: (folderIds: string[]) => void
   setExpandedNavIds: (ids: Set<string>) => void
   collapseAllNav: () => void
   expandAllNav: () => void
@@ -178,6 +179,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     if (next.has(id)) next.delete(id)
     else next.add(id)
     return { expandedNavIds: next }
+  }),
+  expandNavFolders: (folderIds) => set((s) => {
+    const next = new Set(s.expandedNavIds)
+    let changed = false
+    for (const id of folderIds) {
+      if (!next.has(id)) {
+        next.add(id)
+        changed = true
+      }
+    }
+    return changed ? { expandedNavIds: next } : {}
   }),
   setExpandedNavIds: (ids) => set({ expandedNavIds: ids }),
   collapseAllNav: () => set({ expandedNavIds: new Set() }),

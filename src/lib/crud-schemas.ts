@@ -166,7 +166,10 @@ export function getPrimaryKeyColumn(table: CrudTable): 'id' | 'key' {
 const FIXED_NAV_NODE_COLUMNS = ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder', 'data']
 
 /** Split a nav_nodes record into fixed columns + JSON blob in `data`. */
-export function prepareNavNodeRecord(rawData: Record<string, unknown>): Record<string, unknown> {
+export function prepareNavNodeRecord(
+  rawData: Record<string, unknown>,
+  validFieldKeys?: Set<string>,
+): Record<string, unknown> {
   const record: Record<string, unknown> = {}
   const extraData: Record<string, unknown> = {}
 
@@ -175,7 +178,10 @@ export function prepareNavNodeRecord(rawData: Record<string, unknown>): Record<s
       record[key] = value === '' ? null : value
     } else {
       if (value !== '' && value !== null && value !== undefined) {
-        extraData[key] = value
+        const normKey = normalizeKey(key)
+        if (!validFieldKeys || validFieldKeys.has(key) || validFieldKeys.has(normKey)) {
+          extraData[key] = value
+        }
       }
     }
   }
@@ -216,7 +222,10 @@ export async function syncNodeFieldValues(
 
   let validFieldKeys: Set<string> | null = null
   try {
-    const definitions = await client.fieldDefinition.findMany({ select: { key: true } })
+    const definitions = await client.fieldDefinition.findMany({
+      where: { isActive: 1 },
+      select: { key: true },
+    })
     validFieldKeys = new Set(definitions.map((d) => d.key))
   } catch (err) {
     console.error('Error fetching field definitions for syncNodeFieldValues:', err)
@@ -241,6 +250,50 @@ export async function syncNodeFieldValues(
     } catch (err) {
       console.error(`Error syncing field ${targetKey} for node ${nodeId}:`, err)
     }
+  }
+}
+
+/** Remove a deleted or deactivated fieldKey from nav_nodes.data JSON column. */
+export async function cleanupNavNodeDataForKey(
+  fieldKey: string,
+  tx?: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+): Promise<void> {
+  if (!fieldKey) return
+  const client = tx || db
+  const normKey = normalizeKey(fieldKey)
+
+  try {
+    const nodes = await client.navNode.findMany({
+      where: { data: { not: null } },
+      select: { id: true, data: true },
+    })
+
+    for (const node of nodes) {
+      if (!node.data) continue
+      try {
+        const parsed = JSON.parse(node.data) as Record<string, unknown>
+        let modified = false
+        if (fieldKey in parsed) {
+          delete parsed[fieldKey]
+          modified = true
+        }
+        if (normKey in parsed) {
+          delete parsed[normKey]
+          modified = true
+        }
+        if (modified) {
+          const newData = Object.keys(parsed).length > 0 ? JSON.stringify(parsed) : null
+          await client.navNode.update({
+            where: { id: node.id },
+            data: { data: newData },
+          })
+        }
+      } catch {
+        /* ignore invalid JSON */
+      }
+    }
+  } catch (err) {
+    console.error(`Error cleaning up nav_node data for field ${fieldKey}:`, err)
   }
 }
 

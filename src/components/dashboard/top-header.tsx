@@ -109,7 +109,6 @@ export default function TopHeader({ modules, activeModuleId, onModuleChange }: T
             <div className="size-5 bg-accent text-text-inverse flex items-center justify-center font-semibold text-[10px]">
               LD
             </div>
-            <span className="text-xs font-medium text-text">LD</span>
             <ChevronDown size={12} strokeWidth={1.5} className="text-text-muted" />
           </button>
           {menuOpen && (

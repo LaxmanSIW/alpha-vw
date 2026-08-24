@@ -150,7 +150,7 @@ async function getNavTree(scheduledMap: Map<string, string>): Promise<NavItem[]>
           : 'No'
       }
 
-      if (row.kind === 'item') {
+      if (row.kind === 'item' || row.kind === 'job') {
         return {
           id: row.id,
           label: row.label,

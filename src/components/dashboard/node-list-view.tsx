@@ -63,7 +63,7 @@ export default function NodeListView({ nodes, selectedId, onSelect, fieldDefinit
   // Dynamically sync list view columns when field definitions are created or deleted
   useEffect(() => {
     setColumns((prevCols) => {
-      const baseKeys = new Set(['label', 'status', 'host', 'runs', 'scheduled', 'schedule', 'kind', '__id'])
+      const baseKeys = new Set(['label', 'status', 'kind', '__id', 'id'])
       const activeDefKeys = new Set(
         activeDefs.filter((f) => f.isActive !== 0 && f.isActive !== false).map((f) => f.key),
       )

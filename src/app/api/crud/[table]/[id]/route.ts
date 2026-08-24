@@ -9,9 +9,11 @@ import {
   ALLOWED_TABLES,
   updateSchema,
   normalizeRecord,
+  normalizeKey,
   getPrimaryKeyColumn,
   prepareNavNodeRecord,
   syncNodeFieldValues,
+  cleanupNavNodeDataForKey,
   invalidateScheduleCache,
   type CrudTable,
 } from '@/lib/crud-schemas'
@@ -62,7 +64,9 @@ async function updateRecord(table: CrudTable, id: string, data: Record<string, u
       await db.viewpoint.update({ where: { id }, data: data as never })
       break
     case 'nav_nodes': {
-      const navData = prepareNavNodeRecord(data)
+      const activeFieldDefs = await db.fieldDefinition.findMany({ where: { isActive: 1 }, select: { key: true } })
+      const validKeys = new Set(activeFieldDefs.flatMap((f) => [f.key, normalizeKey(f.key)]))
+      const navData = prepareNavNodeRecord(data, validKeys)
       await db.navNode.update({ where: { id }, data: navData as never })
       await syncNodeFieldValues(id, data)
       break
@@ -75,6 +79,9 @@ async function updateRecord(table: CrudTable, id: string, data: Record<string, u
       break
     case 'field_definitions':
       await db.fieldDefinition.update({ where: { key: id }, data: data as never })
+      if ('isActive' in data && Number(data.isActive) === 0) {
+        await cleanupNavNodeDataForKey(id)
+      }
       break
     case 'node_field_values': {
       const { nodeId, fieldKey } = parseCompositeId(id)
@@ -153,6 +160,7 @@ async function deleteRecord(table: CrudTable, id: string) {
       break
     case 'field_definitions':
       await db.fieldDefinition.delete({ where: { key: id } })
+      await cleanupNavNodeDataForKey(id)
       break
     case 'node_field_values': {
       const { nodeId, fieldKey } = parseCompositeId(id)

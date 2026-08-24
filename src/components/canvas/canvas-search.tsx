@@ -47,11 +47,19 @@ export default function CanvasSearch({ nodes, onPick, onClose }: CanvasSearchPro
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const picked = matches[activeIndex]
-      if (picked) onPick(picked.id)
+      if (picked) {
+        onPick(picked.id)
+        onClose()
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault()
       onClose()
     }
+  }
+
+  const handlePick = (id: string) => {
+    onPick(id)
+    onClose()
   }
 
   return (
@@ -88,7 +96,7 @@ export default function CanvasSearch({ nodes, onPick, onClose }: CanvasSearchPro
               role="option"
               aria-selected={i === activeIndex}
               onMouseEnter={() => setActiveIndex(i)}
-              onClick={() => onPick(n.id)}
+              onClick={() => handlePick(n.id)}
               className={cn(
                 'cursor-pointer px-2 py-1.5 text-xs',
                 i === activeIndex ? 'bg-primary/10 text-primary' : 'text-text hover:bg-surface-hover',

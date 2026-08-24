@@ -44,7 +44,7 @@ const TABLES: Array<{ id: CrudTable; label: string }> = [
 const TABLE_COLUMNS: Record<CrudTable, string[]> = {
   modules: ['id', 'label'],
   viewpoints: ['id', 'moduleId', 'label', 'description', 'folder', 'jobCount', 'scope', 'filterStatus', 'grouping', 'sortBy'],
-  nav_nodes: ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder', 'data'],
+  nav_nodes: ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status'],
   edges: ['id', 'source', 'target'],
   node_logs: ['id', 'nodeId', 'timestamp', 'level', 'message'],
   field_definitions: ['key', 'label', 'sectionTitle', 'role', 'format', 'sortOrder', 'isProtected', 'showOnCard', 'showInDetails', 'isActive'],
@@ -117,6 +117,8 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [fieldDefs, setFieldDefs] = useState<Record<string, unknown>[]>([])
   const [appConfigRows, setAppConfigRows] = useState<Record<string, unknown>[]>([])
+  const [scheduleConfigRows, setScheduleConfigRows] = useState<Record<string, unknown>[]>([])
+  const [nodeOptions, setNodeOptions] = useState<Array<{ id: string; label: string }>>([])
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})
@@ -133,10 +135,28 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
       } catch {
         /* ignore */
       }
-      if (activeTable === 'nav_nodes') {
+      try {
+        const navNodes = await fetchTableRows<Record<string, unknown>>('nav_nodes')
+        const opts = navNodes
+          .map((n) => ({
+            id: String(n.id ?? '').trim(),
+            label: String(n.label ?? '').trim(),
+          }))
+          .filter((n) => n.id)
+        setNodeOptions(opts)
+      } catch {
+        /* ignore */
+      }
+      if (activeTable === 'nav_nodes' || activeTable === 'node_field_values') {
         try {
           const fdefs = await fetchTableRows<Record<string, unknown>>('field_definitions')
           setFieldDefs(fdefs)
+        } catch {
+          /* ignore */
+        }
+        try {
+          const scheds = await fetchTableRows<Record<string, unknown>>('schedule_configs')
+          setScheduleConfigRows(scheds)
         } catch {
           /* ignore */
         }
@@ -162,6 +182,7 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
 
     if (activeTable === 'nav_nodes') {
       for (const fd of fieldDefs) {
+        if ((fd.isActive ?? 1) === 0) continue
         const key = String(fd.key ?? '').trim()
         if (!key || key === 'data') continue
         const normKey = normalizeKey(key)
@@ -169,13 +190,12 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
           set.add(normKey)
         }
       }
-    }
-
-    for (const r of rows) {
-      for (const k of Object.keys(r)) {
-        if (activeTable === 'nav_nodes' && k === 'data') continue
-        const normKey = normalizeKey(k)
-        set.add(normKey)
+    } else {
+      for (const r of rows) {
+        for (const k of Object.keys(r)) {
+          const normKey = normalizeKey(k)
+          set.add(normKey)
+        }
       }
     }
     return Array.from(set)
@@ -206,6 +226,19 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
     }
     return Array.from(set).sort()
   }, [appConfigRows, rows])
+
+  const scheduleOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const row of scheduleConfigRows) {
+      if (row.name) set.add(String(row.name).trim())
+      if (row.id) set.add(String(row.id).trim())
+    }
+    for (const r of rows) {
+      if (r.schedule) set.add(String(r.schedule).trim())
+      if (r.pace_schedule_name) set.add(String(r.pace_schedule_name).trim())
+    }
+    return Array.from(set).filter(Boolean).sort()
+  }, [scheduleConfigRows, rows])
 
   const onCreate = () => {
     setCreating(true)
@@ -315,6 +348,8 @@ function TablesTab({ onDataChanged }: { onDataChanged: () => void }) {
           isCreate={creating}
           rows={rows}
           statusOptions={statusOptions}
+          scheduleOptions={scheduleOptions}
+          nodeOptions={nodeOptions}
         />
 
         <div className="min-h-0 min-w-0 flex-1 overflow-auto custom-scrollbar">
@@ -544,6 +579,8 @@ function EditRecordModal({
   isCreate,
   rows,
   statusOptions = [],
+  scheduleOptions = [],
+  nodeOptions = [],
 }: {
   isOpen: boolean
   onClose: () => void
@@ -555,6 +592,8 @@ function EditRecordModal({
   isCreate: boolean
   rows: Record<string, unknown>[]
   statusOptions?: string[]
+  scheduleOptions?: string[]
+  nodeOptions?: Array<{ id: string; label: string }>
 }) {
   return (
     <Modal
@@ -618,14 +657,39 @@ function EditRecordModal({
                   )
                 }
 
-                // Otherwise show Input with datalist for existing value suggestions
-                const suggestions = Array.from(
-                  new Set(
-                    rows
-                      .map((r) => String(r[c] ?? '').trim())
-                      .filter(Boolean)
-                  )
-                ).sort()
+                // Otherwise show Input with datalist for suggestions (Node IDs for edges, Schedule Configs, or general row values)
+                const isNodeIdField = (tableName === 'edges' && (c === 'source' || c === 'target')) || c === 'nodeId' || c === 'parentId'
+                const isScheduleField = c === 'schedule' || c === 'pace_schedule_name' || c.toLowerCase().includes('schedule')
+
+                let suggestions: string[] = []
+                if (isNodeIdField && nodeOptions.length > 0) {
+                  const set = new Set<string>()
+                  for (const n of nodeOptions) {
+                    if (n.id) set.add(n.id)
+                  }
+                  for (const r of rows) {
+                    const val = String(r[c] ?? '').trim()
+                    if (val) set.add(val)
+                  }
+                  suggestions = Array.from(set).sort()
+                } else if (isScheduleField) {
+                  suggestions = Array.from(
+                    new Set([
+                      ...scheduleOptions,
+                      ...rows.map((r) => String(r[c] ?? '').trim()).filter(Boolean),
+                    ])
+                  ).sort()
+                } else {
+                  suggestions = Array.from(
+                    new Set(rows.map((r) => String(r[c] ?? '').trim()).filter(Boolean))
+                  ).sort()
+                }
+
+                const placeholderText = isNodeIdField
+                  ? 'Select Node ID or type manual...'
+                  : isScheduleField
+                  ? 'Select Schedule Config (RBC) or type manual...'
+                  : undefined
 
                 return (
                   <div key={c} className="flex flex-col">
@@ -636,12 +700,19 @@ function EditRecordModal({
                       value={String(form[c] ?? '')}
                       onChange={(e) => onChange({ ...form, [c]: e.target.value })}
                       list={`datalist-${c}`}
+                      placeholder={placeholderText}
                     />
                     {suggestions.length > 0 && (
                       <datalist id={`datalist-${c}`}>
-                        {suggestions.map((val) => (
-                          <option key={val} value={val} />
-                        ))}
+                        {isNodeIdField
+                          ? suggestions.map((val) => {
+                              const match = nodeOptions.find((n) => n.id === val)
+                              const labelText = match && match.label ? `${val} (${match.label})` : val
+                              return <option key={val} value={val} label={labelText} />
+                            })
+                          : suggestions.map((val) => (
+                              <option key={val} value={val} />
+                            ))}
                       </datalist>
                     )}
                   </div>
@@ -693,14 +764,14 @@ const SAMPLE_CSV: Record<CrudTable, { headers: string[]; rows: string[][] }> = {
     ],
   },
   nav_nodes: {
-    headers: ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status', 'host', 'runs', 'sortOrder'],
+    headers: ['id', 'label', 'kind', 'parentId', 'nodeKind', 'status'],
     rows: [
-      ['F-ROOT', 'Banking Jobs', 'folder', '', '', '', '', '', '0'],
-      ['F-01', 'Ingestion', 'folder', 'F-ROOT', '', '', '', '', '0'],
-      ['J-01', 'Load Customer Data', 'item', 'F-01', 'Source', 'Completed', 'server-01', '142', '0'],
-      ['J-02', 'Load Transaction Log', 'item', 'F-01', 'Source', 'Completed', 'server-01', '98', '0'],
-      ['F-02', 'Processing', 'folder', 'F-ROOT', '', '', '', '', '0'],
-      ['J-03', 'Validate Transactions', 'item', 'F-02', 'Process', 'Executing', 'server-02', '67', '0'],
+      ['F-ROOT', 'Banking Jobs', 'folder', '', '', ''],
+      ['F-01', 'Ingestion', 'folder', 'F-ROOT', '', ''],
+      ['J-01', 'Load Customer Data', 'item', 'F-01', 'Source', 'Completed'],
+      ['J-02', 'Load Transaction Log', 'item', 'F-01', 'Source', 'Completed'],
+      ['F-02', 'Processing', 'folder', 'F-ROOT', '', ''],
+      ['J-03', 'Validate Transactions', 'item', 'F-02', 'Process', 'Executing'],
     ],
   },
   edges: {
@@ -764,7 +835,10 @@ async function buildDynamicSampleCSV(table: CrudTable): Promise<string> {
     if (table === 'nav_nodes') {
       try {
         const fdefs = await fetchTableRows<Record<string, unknown>>('field_definitions')
-        fieldDefKeys = fdefs.map((f) => String(f.key ?? '').trim()).filter((k) => k && k !== 'data')
+        fieldDefKeys = fdefs
+          .filter((f) => (f.isActive ?? 1) !== 0)
+          .map((f) => String(f.key ?? '').trim())
+          .filter((k) => k && k !== 'data')
       } catch {
         /* ignore */
       }
@@ -783,13 +857,13 @@ async function buildDynamicSampleCSV(table: CrudTable): Promise<string> {
           headerSet.add(normKey)
         }
       }
-    }
-    for (const r of dbRows) {
-      for (const k of Object.keys(r)) {
-        if (table === 'nav_nodes' && k === 'data') continue
-        const normKey = normalizeKey(k)
-        if (!headerSet.has(normKey)) {
-          headerSet.add(normKey)
+    } else {
+      for (const r of dbRows) {
+        for (const k of Object.keys(r)) {
+          const normKey = normalizeKey(k)
+          if (!headerSet.has(normKey)) {
+            headerSet.add(normKey)
+          }
         }
       }
     }
